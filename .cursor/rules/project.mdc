@@ -1,0 +1,59 @@
+---
+alwaysApply: true
+---
+
+# Project: MemWrite MVP
+
+这个项目维护用户的个人知识库，支持用户复制视频链接 youtube，b站，或者是其他非结构化的内容(pdf)。然后将内容保存下来。
+
+1. 用户可以基于知识库的内容，进行提问，或者进行对话。
+2. 同时，也可以基于知识库的某部分内容，创造一些二创的微信公众号文章，或者小红书的帖子。
+
+这个项目使用的框架是Next.js 14.2.0，typescript，react 18，tailwindcss，lucide-react，clsx，tailwind-merge。
+使用supabase作为数据库。
+部署到vercel。
+
+## Code Style
+- 使用 TypeScript 与 React 18，保持类型完整，避免 any。
+- 组件与函数命名清晰，优先可读性，避免过度抽象。
+- 代码尽量保持简洁，避免过度封装。
+- Tailwind 优先，类名保持稳定顺序，可用 `clsx`/`tailwind-merge` 合并。
+- UI 逻辑与数据处理分离，避免在 JSX 内写复杂逻辑。
+- 与现有文件风格一致，避免引入新风格或新工具。
+- 对于前端代码，尽量使用组件化的方式，避免在页面内堆积重复 UI。
+
+## Commands
+- 开发：`npm run dev`
+- 构建：`npm run build`
+- 生产启动：`npm run start`
+- 代码检查：`npm run lint`
+
+## Architecture
+- 使用 Next.js App Router，页面位于 `src/app`。
+- API 路由放在 `src/app/api`，保持轻量与可测试。
+- 全局样式在 `src/app/globals.css`，优先复用现有样式。
+- 共享组件放在合适的目录中，避免在页面内堆积重复 UI。
+
+整体项目的架构如下：
+
+```
+ai-interview/
+├── app/                 # Next.js App Router（页面/布局等）
+│   └── api/             # API Routes（controller：薄层，负责校验/鉴权/调用 usecase）
+├── components/          # 纯 UI 组件（尽量无业务副作用）
+├── client/              # 前端请求封装（fetcher / API client）
+├── server/              # 后端业务逻辑（仅 server-side 代码）
+│   ├── infra/           # 数据访问层（repositories / query 封装 / 其他外部调用的封装）
+│   ├── services/        # 领域服务（业务规则、聚合逻辑）
+│   ├── domain/          # 核心领域逻辑
+│   └── errors/          # 统一错误类型与 HTTP 映射（可选）
+├── lib/                 # 通用工具（前后端共享：env/utils/constants）
+├── supabase/            # 数据库脚本（schema/seed/migrations）
+└── types/               # 共享类型（domain types / API DTO）
+```
+
+## Important Notes
+- 修改需保持与现有行为一致，避免不必要的 UI/交互变更。
+- 新增依赖需谨慎，优先使用现有库与工具链。
+- 提交前确认 lint 通过，避免引入明显的类型或格式问题。
+- 确保你的改动是符合项目的架构和需求的。注意改动不要使项目部署到vercel失败。

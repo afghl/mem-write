@@ -5,8 +5,8 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "MemWrite MVP",
-  description: "AI-powered notebook inspired by NotebookLM",
+  title: "mem write",
+  description: "AI-powered notebook mem write",
 };
 
 export default function RootLayout({

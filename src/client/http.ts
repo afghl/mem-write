@@ -42,12 +42,18 @@ export async function fetchEventStream(
 
     for (const part of parts) {
       const lines = part.split('\n');
+      const dataLines: string[] = [];
       for (const line of lines) {
         if (!line.startsWith('data:')) continue;
-        const chunk = line.slice(5).trimStart();
-        if (!chunk || chunk === '[DONE]') continue;
-        onChunk(chunk);
+        // Preserve leading spaces in streamed tokens. Only strip the optional single space after "data:".
+        const chunk = line.startsWith('data: ') ? line.slice(6) : line.slice(5);
+        dataLines.push(chunk);
       }
+
+      if (dataLines.length === 0) continue;
+      const data = dataLines.join('\n');
+      if (!data || data.trim() === '[DONE]') continue;
+      onChunk(data);
     }
   }
 }

@@ -18,9 +18,10 @@
     "moduleDetection": "force",
     "allowJs": true,
     "jsx": "preserve",
+    "baseUrl": ".",
     "paths": {
       "@/*": [
-        "./*"
+        "./src/*"
       ]
     },
     "allowImportingTsExtensions": true,

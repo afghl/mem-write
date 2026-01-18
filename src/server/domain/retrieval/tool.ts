@@ -1,4 +1,6 @@
 import type { RetrievalDocument, RetrievalRepo } from '../../repo/retrievalRepo';
+import { retrieveDocuments } from './retrieve.ts';
+import { rerankDocuments } from './rerank.ts';
 
 export type RagToolInput = {
     query: string;
@@ -17,6 +19,12 @@ export type RagTool = {
 };
 
 const DEFAULT_LIMIT = 3;
+const DEFAULT_RERANK_MODEL = 'gpt-5-mini';
+
+const getEnvValue = (key: string) => {
+    const value = process.env[key];
+    return value && value.trim().length > 0 ? value : undefined;
+};
 
 const serializeDocuments = (documents: RetrievalDocument[]) =>
     documents
@@ -26,18 +34,25 @@ const serializeDocuments = (documents: RetrievalDocument[]) =>
         })
         .join('\n');
 
-export const createRagTool = (repo: RetrievalRepo): RagTool => ({
+export const createRetrieveTool = (repo: RetrievalRepo): RagTool => ({
     name: 'retrieve',
     description: 'Retrieve information related to a query.',
     async run({ query, limit }: RagToolInput) {
-        const documents = await repo.similaritySearch({
+        const documents = await retrieveDocuments(repo, {
             query,
             limit: limit ?? DEFAULT_LIMIT,
         });
+        const reranked = await rerankDocuments({
+            query,
+            documents,
+            apiKey: getEnvValue('LLM_API_KEY') ?? getEnvValue('OPENAI_API_KEY'),
+            baseUrl: getEnvValue('LLM_BASE_URL') ?? getEnvValue('OPENAI_BASE_URL'),
+            modelName: getEnvValue('RERANK_MODEL') ?? DEFAULT_RERANK_MODEL,
+        });
 
         return {
-            content: serializeDocuments(documents),
-            documents,
+            content: serializeDocuments(reranked),
+            documents: reranked,
         };
     },
 });

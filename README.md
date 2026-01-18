@@ -15,6 +15,12 @@ View your app in AI Studio: https://ai.studio/apps/drive/18-XP75nUrjBRybsdsxwp2U
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+2. Create `.env.local` with the following:
+   - `LLM_API_KEY` (or `OPENAI_API_KEY`)
+   - `LLM_MODEL` (optional, default `gpt-5-mini`)
+   - `LLM_BASE_URL` (optional)
+   - `EMBEDDING_MODEL` (optional, default `text-embedding-3-small`)
+   - `CHROMA_URL` (e.g. `http://localhost:8000`)
+   - `CHROMA_COLLECTION` (existing collection name)
 3. Run the app:
    `npm run dev`

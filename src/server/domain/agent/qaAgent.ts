@@ -4,7 +4,8 @@ import { tool } from '@langchain/core/tools';
 import { END, MessagesAnnotation, START, StateGraph } from '@langchain/langgraph';
 import { ToolNode } from '@langchain/langgraph/prebuilt';
 import { MemorySaver } from '@langchain/langgraph-checkpoint';
-import { createRagTool } from '../retrieval/tool';
+import { createRetrieveTool } from '../retrieval/tool';
+import { ChromaRetrievalRepo } from '../../infra/chromaRetrievalRepo';
 import { MockRetrievalRepo } from '../../infra/mockRetrievalRepo';
 import { createSupabaseCheckpointSaver } from './history';
 
@@ -27,12 +28,37 @@ const getEnvValue = (key: string) => {
     return value && value.trim().length > 0 ? value : undefined;
 };
 
+const createRetrievalRepo = () => {
+    const chromaUrl = getEnvValue('CHROMA_URL');
+    const chromaCollection = getEnvValue('CHROMA_COLLECTION');
+    if (!chromaUrl || !chromaCollection) {
+        return new MockRetrievalRepo();
+    }
+
+    const apiKey = getEnvValue('LLM_API_KEY') ?? getEnvValue('OPENAI_API_KEY');
+    if (!apiKey) {
+        console.warn('Missing embedding API key; falling back to mock retrieval repo.');
+        return new MockRetrievalRepo();
+    }
+
+    return new ChromaRetrievalRepo({
+        url: chromaUrl,
+        collection: chromaCollection,
+        apiKey,
+        baseUrl: getEnvValue('LLM_BASE_URL') ?? getEnvValue('OPENAI_BASE_URL'),
+        embeddingModel: getEnvValue('EMBEDDING_MODEL'),
+        chromaToken: getEnvValue('CHROMA_TOKEN') ?? getEnvValue('CHROMA_API_KEY'),
+        chromaTenant: getEnvValue('CHROMA_TENANT'),
+        chromaDatabase: getEnvValue('CHROMA_DATABASE'),
+    });
+};
+
 const createRetrievalTool = () => {
-    const ragTool = createRagTool(new MockRetrievalRepo());
+    const retrieveTool = createRetrieveTool(createRetrievalRepo());
 
     return tool(
         async ({ query, limit }: { query: string; limit?: number }) => {
-            const result = await ragTool.run({ query, limit });
+            const result = await retrieveTool.run({ query, limit });
             return result.content;
         },
         {

@@ -32,7 +32,8 @@ alwaysApply: true
 - 使用 Next.js App Router，页面位于 `src/app`。
 - API 路由放在 `src/app/api`，保持轻量与可测试。
 - 全局样式在 `src/app/globals.css`，优先复用现有样式。
-- 共享组件放在合适的目录中，避免在页面内堆积重复 UI。
+- 共享组件放在 `src/app/components`，避免在页面内堆积重复 UI。
+- 在 `src/app/api` 里的路由，负责校验/鉴权/调用 usecase；然后转发到 `src/server/services` 里的服务，去做实际的业务逻辑。
 
 整体项目的架构如下：
 
@@ -40,8 +41,8 @@ alwaysApply: true
 mem-write/
 ├── src/
 │   ├── app/                 # Next.js App Router（页面/布局等）
-│   │   └── api/             # API Routes（controller：薄层，负责校验/鉴权/调用 usecase）
-│   ├── components/          # 纯 UI 组件（尽量无业务副作用）
+│   │   ├── api/             # API Routes（controller：薄层，负责校验/鉴权/调用 usecase）
+│   │   └── components/      # 纯 UI 组件（尽量无业务副作用）
 │   ├── client/              # 前端请求封装（fetcher / API client）
 │   ├── server/              # 后端业务逻辑（仅 server-side 代码）
 │   │   ├── infra/           # 数据访问层（repositories / query 封装 / 其他外部调用的封装）

@@ -2,6 +2,7 @@ import { streamQaAgentEvents } from '@/server/domain/agent/qaAgent';
 import type { QaAgentStreamEvent } from '@/server/domain/agent/qaAgent';
 
 type QaChatStreamParams = {
+    sessionId: string;
     message: string;
 };
 
@@ -27,9 +28,9 @@ const getChunkText = (chunk: unknown) => {
 const isChatModelStreamEvent = (event: QaAgentStreamEvent) =>
     event.event === 'on_chat_model_stream';
 
-export async function streamQaChat({ message }: QaChatStreamParams) {
+export async function streamQaChat({ sessionId, message }: QaChatStreamParams) {
     const encoder = new TextEncoder();
-    const streamEvents = await streamQaAgentEvents({ message });
+    const streamEvents = await streamQaAgentEvents({ sessionId, message });
 
     return new ReadableStream<Uint8Array>({
         start(controller) {

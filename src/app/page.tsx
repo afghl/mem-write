@@ -116,7 +116,7 @@ export default function Home() {
 
     try {
       await streamQaChat({
-        sessionId: '1',
+        sessionId: '123', // mock
         message: content,
         onChunk: appendAssistantChunk,
       });

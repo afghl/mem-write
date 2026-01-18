@@ -5,7 +5,10 @@ type ChatRequest = {
     message: string;
 };
 
-export async function POST(request: NextRequest) {
+export async function POST(
+    request: NextRequest,
+    { params }: { params: { session_id?: string } },
+) {
     const { message } = (await request.json()) as ChatRequest;
     if (!message || typeof message !== 'string' || !message.trim()) {
         return new Response(JSON.stringify({ error: 'Message is required.' }), {
@@ -14,8 +17,16 @@ export async function POST(request: NextRequest) {
         });
     }
 
+    var sessionId = params.session_id?.trim();
+    if (!sessionId) {
+        return new Response(JSON.stringify({ error: 'Session id is required.' }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' },
+        });
+    }
+
     try {
-        const stream = await streamQaChat({ message });
+        const stream = await streamQaChat({ sessionId, message });
         return new Response(stream, {
             headers: {
                 'Content-Type': 'text/event-stream',

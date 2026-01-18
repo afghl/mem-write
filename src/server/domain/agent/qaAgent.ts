@@ -3,10 +3,13 @@ import { HumanMessage, SystemMessage, type BaseMessage } from '@langchain/core/m
 import { tool } from '@langchain/core/tools';
 import { END, MessagesAnnotation, START, StateGraph } from '@langchain/langgraph';
 import { ToolNode } from '@langchain/langgraph/prebuilt';
+import { MemorySaver } from '@langchain/langgraph-checkpoint';
 import { createRagTool } from '../retrieval/tool';
 import { MockRetrievalRepo } from '../../infra/mockRetrievalRepo';
+import { createSupabaseCheckpointSaver } from './history';
 
 type QaAgentStreamParams = {
+    sessionId: string;
     message: string;
 };
 
@@ -53,6 +56,17 @@ const createRetrievalTool = () => {
     );
 };
 
+const createCheckpointer = () => {
+    const supabaseSaver = createSupabaseCheckpointSaver();
+    if (!supabaseSaver) {
+        console.warn(
+            'Supabase config missing; falling back to in-memory checkpointer for QA agent.',
+        );
+        return new MemorySaver();
+    }
+    return supabaseSaver;
+};
+
 const hasToolCalls = (message?: BaseMessage) => {
     if (!message || typeof message !== 'object') return false;
     if (!('tool_calls' in message)) return false;
@@ -96,7 +110,8 @@ const buildQaAgentApp = async () => {
         })
         .addEdge('tools', 'agent');
 
-    return workflow.compile();
+    const checkpointer = createCheckpointer();
+    return workflow.compile({ checkpointer });
 };
 
 let cachedApp: ReturnType<typeof buildQaAgentApp> | null = null;
@@ -110,6 +125,7 @@ const getQaAgentApp = () => {
 };
 
 export async function streamQaAgentEvents({
+    sessionId,
     message,
 }: QaAgentStreamParams): Promise<AsyncIterable<QaAgentStreamEvent>> {
     const app = await getQaAgentApp();
@@ -121,8 +137,23 @@ export async function streamQaAgentEvents({
         ].join(' '),
     );
 
+    const config = { configurable: { thread_id: sessionId } };
+    const state = await app.getState(config);
+    const existingMessages = Array.isArray(state?.values?.messages)
+        ? (state.values.messages as BaseMessage[])
+        : [];
+    const hasSystemMessage = existingMessages.some(
+        (existing) => existing instanceof SystemMessage,
+    );
+
+    const inputMessages = hasSystemMessage
+        ? [new HumanMessage(message)]
+        : [systemMessage, new HumanMessage(message)];
+    for await (const state of app.getStateHistory(config)) {
+        console.log(state);
+    }
     return app.streamEvents(
-        { messages: [systemMessage, new HumanMessage(message)] },
-        { version: 'v2' },
+        { messages: inputMessages },
+        { version: 'v2', ...config },
     );
 }

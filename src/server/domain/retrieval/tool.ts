@@ -30,6 +30,7 @@ export const createRagTool = (repo: RetrievalRepo): RagTool => ({
     name: 'retrieve',
     description: 'Retrieve information related to a query.',
     async run({ query, limit }: RagToolInput) {
+        console.log(query)
         const documents = await repo.similaritySearch({
             query,
             limit: limit ?? DEFAULT_LIMIT,

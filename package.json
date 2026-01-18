@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@langchain/core": "^0.3.68",
+    "@langchain/langgraph": "^0.2.35",
     "@langchain/openai": "^0.6.17",
     "react": "^18",
     "react-dom": "^18",

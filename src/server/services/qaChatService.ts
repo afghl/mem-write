@@ -1,15 +1,8 @@
-import { ChatOpenAI } from '@langchain/openai';
-import { HumanMessage } from '@langchain/core/messages';
+import { streamQaAgentEvents } from '@/server/domain/agent/qaAgent';
+import type { QaAgentStreamEvent } from '@/server/domain/agent/qaAgent';
 
 type QaChatStreamParams = {
     message: string;
-};
-
-const DEFAULT_MODEL = 'gpt-5-mini';
-
-const getEnvValue = (key: string) => {
-    const value = process.env[key];
-    return value && value.trim().length > 0 ? value : undefined;
 };
 
 const getChunkText = (chunk: unknown) => {
@@ -31,32 +24,20 @@ const getChunkText = (chunk: unknown) => {
     return '';
 };
 
+const isChatModelStreamEvent = (event: QaAgentStreamEvent) =>
+    event.event === 'on_chat_model_stream';
+
 export async function streamQaChat({ message }: QaChatStreamParams) {
-    const apiKey = getEnvValue('LLM_API_KEY') ?? getEnvValue('OPENAI_API_KEY');
-    const baseURL = getEnvValue('LLM_BASE_URL') ?? getEnvValue('OPENAI_BASE_URL');
-    const modelName = getEnvValue('LLM_MODEL') ?? DEFAULT_MODEL;
-
-    if (!apiKey) {
-        throw new Error('Missing LLM API key in environment variables.');
-    }
-
-    const model = new ChatOpenAI({
-        modelName,
-        temperature: 0.2,
-        streaming: true,
-        openAIApiKey: apiKey,
-        configuration: baseURL ? { baseURL } : undefined,
-    });
-
     const encoder = new TextEncoder();
+    const streamEvents = await streamQaAgentEvents({ message });
 
     return new ReadableStream<Uint8Array>({
         start(controller) {
             const send = async () => {
                 try {
-                    const stream = await model.stream([new HumanMessage(message)]);
-                    for await (const chunk of stream) {
-                        const text = getChunkText(chunk);
+                    for await (const event of streamEvents) {
+                        if (!isChatModelStreamEvent(event)) continue;
+                        const text = getChunkText(event.data.chunk);
                         if (!text) continue;
                         const lines = text.split(/\r?\n/);
                         for (const line of lines) {

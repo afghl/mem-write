@@ -40,6 +40,33 @@ export class CheckpointSaver extends BaseCheckpointSaver {
         this.repo = repo;
     }
 
+    private async ensureCheckpointRow(
+        threadId: string,
+        checkpointNs: string,
+        checkpointId: string,
+    ): Promise<void> {
+        const existing = await this.repo.getCheckpoint({
+            threadId,
+            checkpointNs,
+            checkpointId,
+        });
+        if (existing) return;
+
+        const placeholderCheckpoint: Partial<Checkpoint> & { id: Checkpoint['id'] } = {
+            id: checkpointId,
+        };
+        const placeholderMetadata: Partial<CheckpointMetadata> = {};
+
+        await this.repo.upsertCheckpoint({
+            thread_id: threadId,
+            checkpoint_ns: checkpointNs,
+            checkpoint_id: checkpointId,
+            parent_checkpoint_id: null,
+            checkpoint: await serialize(this, placeholderCheckpoint),
+            metadata: await serialize(this, placeholderMetadata),
+        });
+    }
+
     private async getPendingSends(
         threadId: string,
         checkpointNs: string,
@@ -256,6 +283,8 @@ export class CheckpointSaver extends BaseCheckpointSaver {
                 'Failed to put writes. Missing "checkpoint_id" in configurable config.',
             );
         }
+
+        await this.ensureCheckpointRow(threadId, checkpointNs, checkpointId);
 
         const rows: CheckpointWriteRow[] = await Promise.all(
             writes.map(async ([channel, value], idx) => {

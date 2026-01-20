@@ -42,6 +42,7 @@ export const createRetrieveTool = (repo: RetrievalRepo): RagTool => ({
             query,
             limit: limit ?? DEFAULT_LIMIT,
         });
+
         const reranked = await rerankDocuments({
             query,
             documents,
@@ -49,7 +50,7 @@ export const createRetrieveTool = (repo: RetrievalRepo): RagTool => ({
             baseUrl: getEnvValue('LLM_BASE_URL') ?? getEnvValue('OPENAI_BASE_URL'),
             modelName: getEnvValue('RERANK_MODEL') ?? DEFAULT_RERANK_MODEL,
         });
-
+        console.log('query: %s, documents: %s, one doc: %s', query, documents.length, reranked[0]);
         return {
             content: serializeDocuments(reranked),
             documents: reranked,

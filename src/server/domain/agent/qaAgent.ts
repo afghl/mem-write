@@ -175,9 +175,9 @@ export async function streamQaAgentEvents({
     const inputMessages = hasSystemMessage
         ? [new HumanMessage(message)]
         : [systemMessage, new HumanMessage(message)];
-    for await (const state of app.getStateHistory(config)) {
-        console.log(state);
-    }
+    // for await (const state of app.getStateHistory(config)) {
+    //     console.log(state);
+    // }
     return app.streamEvents(
         { messages: inputMessages },
         { version: 'v2', ...config },

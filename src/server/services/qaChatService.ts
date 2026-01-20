@@ -28,6 +28,12 @@ const getChunkText = (chunk: unknown) => {
 const isChatModelStreamEvent = (event: QaAgentStreamEvent) =>
     event.event === 'on_chat_model_stream';
 
+const getLanggraphNode = (event: QaAgentStreamEvent) => {
+    const metadata = (event as QaAgentStreamEvent & { metadata?: { langgraph_node?: string } })
+        .metadata;
+    return metadata?.langgraph_node;
+};
+
 export async function streamQaChat({ sessionId, message }: QaChatStreamParams) {
     const encoder = new TextEncoder();
     const streamEvents = await streamQaAgentEvents({ sessionId, message });
@@ -38,6 +44,8 @@ export async function streamQaChat({ sessionId, message }: QaChatStreamParams) {
                 try {
                     for await (const event of streamEvents) {
                         if (!isChatModelStreamEvent(event)) continue;
+                        const node = getLanggraphNode(event);
+                        if (node && node !== 'agent') continue;
                         const text = getChunkText(event.data.chunk);
                         if (!text) continue;
                         const lines = text.split(/\r?\n/);

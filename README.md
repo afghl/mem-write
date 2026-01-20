@@ -22,5 +22,9 @@ View your app in AI Studio: https://ai.studio/apps/drive/18-XP75nUrjBRybsdsxwp2U
    - `EMBEDDING_MODEL` (optional, default `text-embedding-3-small`)
    - `CHROMA_URL` (e.g. `http://localhost:8000`)
    - `CHROMA_COLLECTION` (existing collection name)
+   - `LANGSMITH_TRACING` (optional, `true` to enable traces)
+   - `LANGSMITH_API_KEY` (optional, required for LangSmith)
+   - `LANGSMITH_PROJECT` (optional, e.g. `mem-write`)
+   - `LANGCHAIN_CALLBACKS_BACKGROUND` (optional, `false` for serverless)
 3. Run the app:
    `npm run dev`

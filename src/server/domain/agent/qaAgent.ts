@@ -178,6 +178,7 @@ export async function streamQaAgentEvents({
     // for await (const state of app.getStateHistory(config)) {
     //     console.log(state);
     // }
+    console.log("app.streamEvents... inputMessages: %s", inputMessages);
     return app.streamEvents(
         { messages: inputMessages },
         { version: 'v2', ...config },

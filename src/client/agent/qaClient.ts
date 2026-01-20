@@ -1,22 +1,47 @@
-import { fetchEventStream } from '../http';
+import { fetchEventStream, fetchJson } from '../http';
+import type { ChatMessage } from '@/types/chat';
 
 type StreamQaChatParams = {
-    sessionId: string;
+    threadId?: string | null;
     message: string;
     onChunk: (chunk: string) => void;
+    onThreadId?: (threadId: string) => void;
 };
 
-export async function streamQaChat({ sessionId, message, onChunk }: StreamQaChatParams) {
+type QaHistoryResponse = {
+    thread_id: string;
+    messages: ChatMessage[];
+    latest_checkpoint_id?: string | null;
+};
+
+export async function fetchQaHistory(threadId: string) {
+    const encoded = encodeURIComponent(threadId);
+    return fetchJson<QaHistoryResponse>(`/api/agent/qa/history?thread_id=${encoded}`);
+}
+
+export async function streamQaChat({
+    threadId,
+    message,
+    onChunk,
+    onThreadId,
+}: StreamQaChatParams) {
+    const body = threadId ? { thread_id: threadId, message } : { message };
     return fetchEventStream(
-        `/api/agent/qa/${sessionId}/chat`,
+        `/api/agent/qa/chat`,
         {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 Accept: 'text/event-stream',
             },
-            body: JSON.stringify({ message }),
+            body: JSON.stringify(body),
         },
-        { onChunk },
+        {
+            onChunk,
+            onOpen: (response) => {
+                const nextThreadId = response.headers.get('x-thread-id')?.trim();
+                if (nextThreadId) onThreadId?.(nextThreadId);
+            },
+        },
     );
 }

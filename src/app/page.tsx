@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { AlertCircle, Bell, BookOpen, CheckCircle2 } from 'lucide-react';
 import ChatColumn from './components/home/ChatColumn';
 import SourcesColumn from './components/home/SourcesColumn';
 import StudioColumn from './components/home/StudioColumn';
-import { streamQaChat } from '../client/agent/qaClient';
+import { fetchQaHistory, streamQaChat } from '../client/agent/qaClient';
 import { fetchHealthStatus } from '../client/healthClient';
 import type { ChatMessage } from '../types/chat';
 
@@ -59,11 +60,51 @@ const NavBar = () => (
 // --- Main Page Component ---
 
 export default function Home() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [checkingHealth, setCheckingHealth] = useState(false);
   const [toast, setToast] = useState<{ visible: boolean, message: string, type: 'success' | 'error' }>({ visible: false, message: '', type: 'success' });
   const [inputValue, setInputValue] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [threadId, setThreadId] = useState<string | null>(null);
+  const loadedThreadRef = useRef<string | null>(null);
+  const suppressHistoryRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const urlThreadId = searchParams.get('thread_id');
+    if (!urlThreadId) {
+      setThreadId(null);
+      loadedThreadRef.current = null;
+      suppressHistoryRef.current = null;
+      return;
+    }
+
+    setThreadId(urlThreadId);
+    if (suppressHistoryRef.current === urlThreadId) {
+      suppressHistoryRef.current = null;
+      loadedThreadRef.current = urlThreadId;
+      return;
+    }
+    if (loadedThreadRef.current === urlThreadId) return;
+    loadedThreadRef.current = urlThreadId;
+
+    const loadHistory = async () => {
+      try {
+        const data = await fetchQaHistory(urlThreadId);
+        setMessages(data.messages ?? []);
+      } catch (e) {
+        setToast({
+          visible: true,
+          message: 'Failed to load chat history.',
+          type: 'error',
+        });
+      }
+    };
+
+    void loadHistory();
+  }, [searchParams]);
 
   // Auto-hide toast
   useEffect(() => {
@@ -116,9 +157,17 @@ export default function Home() {
 
     try {
       await streamQaChat({
-        sessionId: '123', // mock
+        threadId,
         message: content,
         onChunk: appendAssistantChunk,
+        onThreadId: (nextThreadId) => {
+          if (!nextThreadId || nextThreadId === threadId) return;
+          suppressHistoryRef.current = nextThreadId;
+          setThreadId(nextThreadId);
+          const params = new URLSearchParams(searchParams.toString());
+          params.set('thread_id', nextThreadId);
+          router.replace(`${pathname}?${params.toString()}`);
+        },
       });
     } catch (e) {
       setToast({

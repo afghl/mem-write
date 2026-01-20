@@ -17,17 +17,19 @@ export async function fetchJson<T>(input: RequestInfo, init?: RequestInit): Prom
 
 type EventStreamOptions = {
   onChunk: (chunk: string) => void;
+  onOpen?: (response: Response) => void;
 };
 
 export async function fetchEventStream(
   input: RequestInfo,
   init: RequestInit | undefined,
-  { onChunk }: EventStreamOptions,
+  { onChunk, onOpen }: EventStreamOptions,
 ) {
   const res = await fetch(input, init);
   if (!res.ok || !res.body) {
     throw new HttpError(res.status, `Stream failed: ${res.status}`);
   }
+  onOpen?.(res);
 
   const reader = res.body.getReader();
   const decoder = new TextDecoder();

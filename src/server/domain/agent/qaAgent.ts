@@ -7,10 +7,10 @@ import { MemorySaver } from '@langchain/langgraph-checkpoint';
 import { createRetrieveTool } from '../retrieval/tool';
 import { ChromaRetrievalRepo } from '../../infra/chromaRetrievalRepo';
 import { MockRetrievalRepo } from '../../infra/mockRetrievalRepo';
-import { createSupabaseCheckpointSaver } from './history';
+import { createSupabaseCheckpointSaver } from './checkpointSaver';
 
 type QaAgentStreamParams = {
-    sessionId: string;
+    threadId: string;
     message: string;
 };
 
@@ -142,7 +142,7 @@ const buildQaAgentApp = async () => {
 
 let cachedApp: ReturnType<typeof buildQaAgentApp> | null = null;
 
-const getQaAgentApp = () => {
+export const getQaAgentApp = () => {
     if (!cachedApp) {
         cachedApp = buildQaAgentApp();
     }
@@ -151,7 +151,7 @@ const getQaAgentApp = () => {
 };
 
 export async function streamQaAgentEvents({
-    sessionId,
+    threadId,
     message,
 }: QaAgentStreamParams): Promise<AsyncIterable<QaAgentStreamEvent>> {
     const app = await getQaAgentApp();
@@ -163,7 +163,7 @@ export async function streamQaAgentEvents({
         ].join(' '),
     );
 
-    const config = { configurable: { thread_id: sessionId } };
+    const config = { configurable: { thread_id: threadId } };
     const state = await app.getState(config);
     const existingMessages = Array.isArray(state?.values?.messages)
         ? (state.values.messages as BaseMessage[])
@@ -178,7 +178,7 @@ export async function streamQaAgentEvents({
     // for await (const state of app.getStateHistory(config)) {
     //     console.log(state);
     // }
-    console.log("app.streamEvents... inputMessages: %s", inputMessages);
+    // console.log("app.streamEvents... inputMessages: %s", inputMessages);
     return app.streamEvents(
         { messages: inputMessages },
         { version: 'v2', ...config },

@@ -2,7 +2,7 @@ import { streamQaAgentEvents } from '@/server/domain/agent/qaAgent';
 import type { QaAgentStreamEvent } from '@/server/domain/agent/qaAgent';
 
 type QaChatStreamParams = {
-    sessionId: string;
+    threadId: string;
     message: string;
 };
 
@@ -34,9 +34,9 @@ const getLanggraphNode = (event: QaAgentStreamEvent) => {
     return metadata?.langgraph_node;
 };
 
-export async function streamQaChat({ sessionId, message }: QaChatStreamParams) {
+export async function streamQaChat({ threadId, message }: QaChatStreamParams) {
     const encoder = new TextEncoder();
-    const streamEvents = await streamQaAgentEvents({ sessionId, message });
+    const streamEvents = await streamQaAgentEvents({ threadId, message });
 
     return new ReadableStream<Uint8Array>({
         start(controller) {

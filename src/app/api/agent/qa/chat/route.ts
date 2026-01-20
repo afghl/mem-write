@@ -1,15 +1,14 @@
 import { NextRequest } from 'next/server';
+import { randomUUID } from 'crypto';
 import { streamQaChat } from '@/server/services/qaChatService';
 
 type ChatRequest = {
     message: string;
+    thread_id?: string;
 };
 
-export async function POST(
-    request: NextRequest,
-    { params }: { params: { session_id?: string } },
-) {
-    const { message } = (await request.json()) as ChatRequest;
+export async function POST(request: NextRequest) {
+    const { message, thread_id } = (await request.json()) as ChatRequest;
     if (!message || typeof message !== 'string' || !message.trim()) {
         return new Response(JSON.stringify({ error: 'Message is required.' }), {
             status: 400,
@@ -17,13 +16,7 @@ export async function POST(
         });
     }
 
-    const threadId = params.session_id?.trim();
-    if (!threadId) {
-        return new Response(JSON.stringify({ error: 'Session id is required.' }), {
-            status: 400,
-            headers: { 'Content-Type': 'application/json' },
-        });
-    }
+    const threadId = thread_id?.trim() || randomUUID();
 
     try {
         const stream = await streamQaChat({ threadId, message });
@@ -32,6 +25,7 @@ export async function POST(
                 'Content-Type': 'text/event-stream',
                 'Cache-Control': 'no-cache, no-transform',
                 Connection: 'keep-alive',
+                'X-Thread-Id': threadId,
             },
         });
     } catch (error) {

@@ -2,6 +2,7 @@ import {
     AIMessage,
     HumanMessage,
     SystemMessage,
+    AIMessageChunk,
     type BaseMessage,
 } from '@langchain/core/messages';
 import { getQaAgentApp } from './qaAgent';
@@ -26,15 +27,20 @@ const getMessageText = (content: BaseMessage['content']): string => {
     return '';
 };
 
-const mapMessageToChat = (message: BaseMessage): QaChatHistoryMessage | null => {
+const getMessageRole = (message: BaseMessage): QaChatHistoryMessage['role'] | null => {
     if (message instanceof SystemMessage) return null;
-    if (message instanceof HumanMessage) {
-        return { role: 'user', content: getMessageText(message.content) };
-    }
-    if (message instanceof AIMessage) {
-        return { role: 'assistant', content: getMessageText(message.content) };
-    }
+    if (message instanceof HumanMessage) return 'user';
+    if (message instanceof AIMessage) return 'assistant';
+    if (message instanceof AIMessageChunk) return 'assistant';
+    console.log("message: %s, role not found", message);
     return null;
+};
+
+const mapMessageToChat = (message: BaseMessage): QaChatHistoryMessage | null => {
+    const role = getMessageRole(message);
+
+    if (!role) return null;
+    return { role, content: getMessageText(message.content) };
 };
 
 export async function getQaChatHistory(threadId: string): Promise<{
@@ -43,20 +49,16 @@ export async function getQaChatHistory(threadId: string): Promise<{
 }> {
     const app = await getQaAgentApp();
     const config = { configurable: { thread_id: threadId } };
-    let latestState: {
-        values?: { messages?: BaseMessage[] };
-        config?: { configurable?: { checkpoint_id?: string } };
-    } | null = null;
-
-    for await (const state of app.getStateHistory(config)) {
-        latestState = state as typeof latestState;
-        break;
-    }
+    const latestState = (await app.getState(config)) as
+        | {
+            values?: { messages?: BaseMessage[] };
+            config?: { configurable?: { checkpoint_id?: string } };
+        }
+        | null;
 
     const existingMessages = Array.isArray(latestState?.values?.messages)
         ? (latestState?.values?.messages as BaseMessage[])
         : [];
-
     const messages = existingMessages
         .map(mapMessageToChat)
         .filter((message): message is QaChatHistoryMessage => Boolean(message))

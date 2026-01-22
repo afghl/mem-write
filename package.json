@@ -25,7 +25,8 @@
     "openai": "^6.16.0",
     "react": "^18",
     "react-dom": "^18",
-    "tailwind-merge": "^2.3.0"
+    "tailwind-merge": "^2.3.0",
+    "unpdf": "^1.4.0"
   },
   "devDependencies": {
     "@types/node": "^20",

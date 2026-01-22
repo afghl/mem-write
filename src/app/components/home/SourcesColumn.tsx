@@ -1,4 +1,8 @@
+"use client";
+
 import { FileText, MoreVertical, Plus, Search } from 'lucide-react';
+import { useState } from 'react';
+import SourceUploadDialog from './SourceUploadDialog';
 
 type SourceItemProps = {
   title: string;
@@ -23,11 +27,16 @@ const SourceItem = ({ title, date }: SourceItemProps) => (
 );
 
 export default function SourcesColumn() {
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
   return (
     <div className="w-[280px] hidden md:flex flex-shrink-0 flex-col bg-white rounded-[24px] border border-gray-200/60 shadow-sm overflow-hidden">
       <div className="p-5 flex items-center justify-between">
         <h2 className="text-xl font-semibold text-gray-800">Sources</h2>
-        <button className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-600">
+        <button
+          className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-600"
+          onClick={() => setIsDialogOpen(true)}
+        >
           <Plus size={20} />
         </button>
       </div>
@@ -49,6 +58,8 @@ export default function SourcesColumn() {
           />
         </div>
       </div>
+
+      <SourceUploadDialog open={isDialogOpen} onClose={() => setIsDialogOpen(false)} />
     </div>
   );
 }

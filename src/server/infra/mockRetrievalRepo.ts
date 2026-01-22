@@ -1,6 +1,11 @@
-import type { RetrievalDocument, RetrievalQuery, RetrievalRepo } from '../repo/retrievalRepo';
+import type {
+    RetrievalDocument,
+    RetrievalQuery,
+    RetrievalRepo,
+    RetrievalUpsertParams,
+} from '../repo/retrievalRepo';
 
-const MOCK_DOCUMENTS: RetrievalDocument[] = [
+let mockDocuments: RetrievalDocument[] = [
     {
         id: 'doc-1',
         source: 'mock://welcome',
@@ -38,11 +43,22 @@ export class MockRetrievalRepo implements RetrievalRepo {
         if (!normalizedQuery) return [];
 
         const terms = normalizedQuery.split(/\s+/).filter(Boolean);
-        const scored = MOCK_DOCUMENTS.map((doc) => ({
+        const scored = mockDocuments.map((doc) => ({
             ...doc,
             score: scoreDocument(doc, terms),
         })).filter((doc) => (doc.score ?? 0) > 0);
 
         return scored.sort((a, b) => (b.score ?? 0) - (a.score ?? 0)).slice(0, limit);
+    }
+
+    async upsertDocuments({ documents }: RetrievalUpsertParams) {
+        for (const doc of documents) {
+            mockDocuments.push({
+                id: doc.id,
+                content: doc.content,
+                source: doc.metadata?.source,
+                metadata: doc.metadata,
+            });
+        }
     }
 }

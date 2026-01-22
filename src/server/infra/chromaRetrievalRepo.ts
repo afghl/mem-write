@@ -1,7 +1,12 @@
 import { OpenAIEmbedding } from '@llamaindex/openai';
 import { CloudClient } from 'chromadb';
 
-import type { RetrievalDocument, RetrievalQuery, RetrievalRepo } from '../repo/retrievalRepo';
+import type {
+    RetrievalDocument,
+    RetrievalQuery,
+    RetrievalRepo,
+    RetrievalUpsertParams,
+} from '../repo/retrievalRepo';
 
 type ChromaRetrievalRepoConfig = {
     url: string;
@@ -108,6 +113,25 @@ export class ChromaRetrievalRepo implements RetrievalRepo {
                 score: distanceToScore(distances[index]),
                 metadata,
             };
+        });
+    }
+
+    async upsertDocuments({ documents, embeddings }: RetrievalUpsertParams): Promise<void> {
+        if (documents.length === 0) return;
+        if (documents.length !== embeddings.length) {
+            throw new Error('Embeddings length must match documents length.');
+        }
+
+        const collection = await this.getCollection();
+        const ids = documents.map((doc) => doc.id);
+        const contents = documents.map((doc) => doc.content);
+        const metadatas = documents.map((doc) => toStringRecord(doc.metadata) ?? {});
+
+        await collection.add({
+            ids,
+            embeddings,
+            documents: contents,
+            metadatas,
         });
     }
 }

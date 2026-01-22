@@ -6,6 +6,8 @@ import { Link2, UploadCloud, X } from 'lucide-react';
 type SourceUploadDialogProps = {
   open: boolean;
   onClose: () => void;
+  projectId: string;
+  onUploaded?: () => void;
 };
 
 const isYouTubeUrl = (value: string) => {
@@ -24,7 +26,12 @@ const isPdfFile = (file: File | null) => {
   return file.type === 'application/pdf' || lowerName.endsWith('.pdf');
 };
 
-export default function SourceUploadDialog({ open, onClose }: SourceUploadDialogProps) {
+export default function SourceUploadDialog({
+  open,
+  onClose,
+  projectId,
+  onUploaded,
+}: SourceUploadDialogProps) {
   const [file, setFile] = useState<File | null>(null);
   const [url, setUrl] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -48,14 +55,16 @@ export default function SourceUploadDialog({ open, onClose }: SourceUploadDialog
     return () => window.removeEventListener('keydown', handleKeydown);
   }, [open, onClose]);
 
+  const trimmedProjectId = projectId.trim();
   const trimmedUrl = url.trim();
   const urlError = trimmedUrl && !isYouTubeUrl(trimmedUrl) ? '请输入有效的 YouTube 链接' : null;
   const fileError = file && !isPdfFile(file) ? '仅支持上传 PDF 文件' : null;
 
   const canSubmit = useMemo(() => {
+    if (!trimmedProjectId) return false;
     if (fileError || urlError) return false;
     return Boolean(file) || Boolean(trimmedUrl);
-  }, [file, fileError, trimmedUrl, urlError]);
+  }, [file, fileError, trimmedProjectId, trimmedUrl, urlError]);
 
   const handleFileChange = (nextFile: File | null) => {
     setFile(nextFile);
@@ -78,6 +87,7 @@ export default function SourceUploadDialog({ open, onClose }: SourceUploadDialog
     setStatus(null);
 
     const formData = new FormData();
+    formData.append('project_id', trimmedProjectId);
     if (file) {
       formData.append('file', file);
     } else if (trimmedUrl) {
@@ -97,6 +107,7 @@ export default function SourceUploadDialog({ open, onClose }: SourceUploadDialog
       setFile(null);
       setUrl('');
       setStatus('已提交到后台处理中');
+      onUploaded?.();
     } catch (submitError) {
       console.error('Source upload failed:', submitError);
       setError('上传失败，请稍后重试');

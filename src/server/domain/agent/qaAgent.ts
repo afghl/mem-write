@@ -8,10 +8,12 @@ import { createRetrieveTool } from '../retrieval/tool';
 import { ChromaRetrievalRepo } from '../../infra/chromaRetrievalRepo';
 import { MockRetrievalRepo } from '../../infra/mockRetrievalRepo';
 import { createSupabaseCheckpointSaver } from './checkpointSaver';
+import type { RetrievalFilters } from '../../repo/retrievalRepo';
 
 type QaAgentStreamParams = {
     threadId: string;
     message: string;
+    filters?: RetrievalFilters;
 };
 
 export type QaAgentStreamEvent = {
@@ -53,12 +55,12 @@ const createRetrievalRepo = () => {
     });
 };
 
-const createRetrievalTool = () => {
+const createRetrievalTool = (filters?: RetrievalFilters) => {
     const retrieveTool = createRetrieveTool(createRetrievalRepo());
 
     return tool(
         async ({ query, limit }: { query: string; limit?: number }) => {
-            const result = await retrieveTool.run({ query, limit });
+            const result = await retrieveTool.run({ query, limit, filters });
             return result.content;
         },
         {
@@ -100,7 +102,7 @@ const hasToolCalls = (message?: BaseMessage) => {
     return Array.isArray(calls) && calls.length > 0;
 };
 
-const buildQaAgentApp = async () => {
+const buildQaAgentApp = async (filters?: RetrievalFilters) => {
     const apiKey = getEnvValue('LLM_API_KEY') ?? getEnvValue('OPENAI_API_KEY');
     const baseURL = getEnvValue('LLM_BASE_URL') ?? getEnvValue('OPENAI_BASE_URL');
     const modelName = getEnvValue('LLM_MODEL') ?? DEFAULT_MODEL;
@@ -117,7 +119,7 @@ const buildQaAgentApp = async () => {
         configuration: baseURL ? { baseURL } : undefined,
     });
 
-    const tools = [createRetrievalTool()];
+    const tools = [createRetrievalTool(filters)];
     const toolNode = new ToolNode(tools);
     const modelWithTools = llm.bindTools(tools);
 
@@ -140,21 +142,23 @@ const buildQaAgentApp = async () => {
     return workflow.compile({ checkpointer });
 };
 
-let cachedApp: ReturnType<typeof buildQaAgentApp> | null = null;
+const cachedApps = new Map<string, ReturnType<typeof buildQaAgentApp>>();
 
-export const getQaAgentApp = () => {
-    if (!cachedApp) {
-        cachedApp = buildQaAgentApp();
-    }
-
-    return cachedApp;
+export const getQaAgentApp = (filters?: RetrievalFilters) => {
+    const key = JSON.stringify(filters ?? {});
+    const existing = cachedApps.get(key);
+    if (existing) return existing;
+    const app = buildQaAgentApp(filters);
+    cachedApps.set(key, app);
+    return app;
 };
 
 export async function streamQaAgentEvents({
     threadId,
     message,
+    filters,
 }: QaAgentStreamParams): Promise<AsyncIterable<QaAgentStreamEvent>> {
-    const app = await getQaAgentApp();
+    const app = await getQaAgentApp(filters);
     const systemMessage = new SystemMessage(
         [
             'You are a MemWrite QA agent.',

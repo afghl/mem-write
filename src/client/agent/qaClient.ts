@@ -4,6 +4,8 @@ import type { ChatMessage } from '@/types/chat';
 type StreamQaChatParams = {
     threadId?: string | null;
     message: string;
+    projectId: string;
+    selectedDocumentIds?: string[];
     onChunk: (chunk: string) => void;
     onThreadId?: (threadId: string) => void;
 };
@@ -22,10 +24,19 @@ export async function fetchQaHistory(threadId: string) {
 export async function streamQaChat({
     threadId,
     message,
+    projectId,
+    selectedDocumentIds,
     onChunk,
     onThreadId,
 }: StreamQaChatParams) {
-    const body = threadId ? { thread_id: threadId, message } : { message };
+    const body = {
+        ...(threadId ? { thread_id: threadId } : {}),
+        message,
+        project_id: projectId,
+        ...(selectedDocumentIds && selectedDocumentIds.length > 0
+            ? { selectedDocumentIds }
+            : {}),
+    };
     return fetchEventStream(
         `/api/agent/qa/chat`,
         {

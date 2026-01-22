@@ -90,7 +90,7 @@ export const createLoadFileStep = (deps: LoadDependencies = {}): LoadStep => {
         if (input.type !== 'pdf') {
             throw new Error('Invalid source type for file loader.');
         }
-        const sourceId = randomUUID();
+        const sourceId = input.sourceId ?? randomUUID();
         const text = await loadPdf(input.data, parser);
         if (!text) throw new Error('PDF content is empty.');
         return {
@@ -99,6 +99,7 @@ export const createLoadFileStep = (deps: LoadDependencies = {}): LoadStep => {
             metadata: {
                 source: input.filename,
                 filename: input.filename,
+                projectId: input.projectId ?? '',
                 sourceType: 'pdf',
             },
         };
@@ -112,7 +113,7 @@ export const createLoadYtbVideoStep = (deps: LoadDependencies = {}): LoadStep =>
         if (input.type !== 'youtube') {
             throw new Error('Invalid source type for YouTube loader.');
         }
-        const sourceId = randomUUID();
+        const sourceId = input.sourceId ?? randomUUID();
         const videoId = input.videoId || parseYouTubeVideoId(input.url);
         if (!videoId) {
             throw new Error('Invalid YouTube URL.');
@@ -125,6 +126,7 @@ export const createLoadYtbVideoStep = (deps: LoadDependencies = {}): LoadStep =>
                 source: input.url,
                 url: input.url,
                 videoId,
+                projectId: input.projectId ?? '',
                 sourceType: 'youtube',
             },
         };

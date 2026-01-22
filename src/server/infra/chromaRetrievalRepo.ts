@@ -1,8 +1,10 @@
 import { OpenAIEmbedding } from '@llamaindex/openai';
 import { CloudClient } from 'chromadb';
+import type { Where } from 'chromadb';
 
 import type {
     RetrievalDocument,
+    RetrievalFilters,
     RetrievalQuery,
     RetrievalRepo,
     RetrievalUpsertParams,
@@ -20,6 +22,7 @@ type ChromaRetrievalRepoConfig = {
 };
 
 type ChromaMetadata = Record<string, unknown>;
+type ChromaWhere = Where;
 
 type ChromaQueryResult = {
     ids: string[][];
@@ -42,6 +45,29 @@ const toStringRecord = (value?: ChromaMetadata | null) => {
 const distanceToScore = (distance?: number) => {
     if (typeof distance !== 'number') return undefined;
     return 1 / (1 + distance);
+};
+
+const buildWhere = (filters?: RetrievalFilters): ChromaWhere | undefined => {
+    if (!filters) return undefined;
+    const projectId = filters.projectId?.trim();
+    const sourceIds = filters.sourceIds?.map((id) => id.trim()).filter(Boolean);
+    const clauses: ChromaWhere[] = [];
+
+    if (projectId) {
+        clauses.push({ projectId });
+    }
+
+    if (sourceIds && sourceIds.length > 0) {
+        clauses.push(
+            sourceIds.length === 1
+                ? { sourceId: sourceIds[0] }
+                : { sourceId: { $in: sourceIds } },
+        );
+    }
+
+    if (clauses.length === 0) return undefined;
+    if (clauses.length === 1) return clauses[0];
+    return { $and: clauses };
 };
 
 export class ChromaRetrievalRepo implements RetrievalRepo {
@@ -83,7 +109,7 @@ export class ChromaRetrievalRepo implements RetrievalRepo {
         return this.collectionPromise;
     }
 
-    async similaritySearch({ query, limit }: RetrievalQuery): Promise<RetrievalDocument[]> {
+    async similaritySearch({ query, limit, filters }: RetrievalQuery): Promise<RetrievalDocument[]> {
         const normalizedQuery = query.trim();
         if (!normalizedQuery) return [];
 
@@ -92,10 +118,12 @@ export class ChromaRetrievalRepo implements RetrievalRepo {
             this.embedModel.getTextEmbedding(normalizedQuery),
         ]);
 
+        const where = buildWhere(filters);
         const result = (await collection.query({
             queryEmbeddings: [embedding],
             nResults: limit,
             include: ['documents', 'metadatas', 'distances'],
+            ...(where ? { where } : {}),
         })) as ChromaQueryResult;
 
         const ids = result.ids?.[0] ?? [];

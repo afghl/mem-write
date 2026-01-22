@@ -15,7 +15,15 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const file = formData.get('file');
     const url = formData.get('url');
+    const projectId = formData.get('project_id');
     const uploadFile = file instanceof File ? file : null;
+
+    if (!projectId || typeof projectId !== 'string' || !projectId.trim()) {
+        return new Response(JSON.stringify({ error: 'Project id is required.' }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' },
+        });
+    }
 
     if (!file && !url) {
         return new Response(JSON.stringify({ error: 'File or URL is required.' }), {
@@ -66,6 +74,7 @@ export async function POST(request: NextRequest) {
     if (uploadFile) {
         const buffer = Buffer.from(await uploadFile.arrayBuffer());
         void enqueueSourceUpload({
+            projectId: projectId.trim(),
             file: {
                 filename: uploadFile.name,
                 data: buffer,
@@ -74,7 +83,7 @@ export async function POST(request: NextRequest) {
             console.error('Source upload ETL failed:', error);
         });
     } else if (trimmedUrl) {
-        void enqueueSourceUpload({ url: trimmedUrl }).catch((error) => {
+        void enqueueSourceUpload({ projectId: projectId.trim(), url: trimmedUrl }).catch((error) => {
             console.error('Source upload ETL failed:', error);
         });
     }

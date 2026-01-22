@@ -1,9 +1,11 @@
 import { streamQaAgentEvents } from '@/server/domain/agent/qaAgent';
 import type { QaAgentStreamEvent } from '@/server/domain/agent/qaAgent';
+import type { RetrievalFilters } from '@/server/repo/retrievalRepo';
 
 type QaChatStreamParams = {
     threadId: string;
     message: string;
+    filters?: RetrievalFilters;
 };
 
 const getChunkText = (chunk: unknown) => {
@@ -34,9 +36,9 @@ const getLanggraphNode = (event: QaAgentStreamEvent) => {
     return metadata?.langgraph_node;
 };
 
-export async function streamQaChat({ threadId, message }: QaChatStreamParams) {
+export async function streamQaChat({ threadId, message, filters }: QaChatStreamParams) {
     const encoder = new TextEncoder();
-    const streamEvents = await streamQaAgentEvents({ threadId, message });
+    const streamEvents = await streamQaAgentEvents({ threadId, message, filters });
 
     return new ReadableStream<Uint8Array>({
         start(controller) {

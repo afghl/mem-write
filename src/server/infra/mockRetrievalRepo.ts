@@ -1,5 +1,6 @@
 import type {
     RetrievalDocument,
+    RetrievalFilters,
     RetrievalQuery,
     RetrievalRepo,
     RetrievalUpsertParams,
@@ -37,16 +38,32 @@ const scoreDocument = (doc: RetrievalDocument, terms: string[]) => {
     return terms.reduce((score, term) => (haystack.includes(term) ? score + 1 : score), 0);
 };
 
+const matchesFilters = (doc: RetrievalDocument, filters?: RetrievalFilters) => {
+    if (!filters) return true;
+    const projectId = filters.projectId?.trim();
+    const sourceIds = filters.sourceIds?.map((id) => id.trim()).filter(Boolean);
+    const metadata = doc.metadata ?? {};
+    const docProjectId = metadata.projectId;
+    const docSourceId = metadata.sourceId ?? doc.id;
+
+    if (projectId && docProjectId !== projectId) return false;
+    if (sourceIds && sourceIds.length > 0 && !sourceIds.includes(docSourceId)) return false;
+    return true;
+};
+
 export class MockRetrievalRepo implements RetrievalRepo {
-    async similaritySearch({ query, limit }: RetrievalQuery) {
+    async similaritySearch({ query, limit, filters }: RetrievalQuery) {
         const normalizedQuery = normalize(query);
         if (!normalizedQuery) return [];
 
         const terms = normalizedQuery.split(/\s+/).filter(Boolean);
-        const scored = mockDocuments.map((doc) => ({
-            ...doc,
-            score: scoreDocument(doc, terms),
-        })).filter((doc) => (doc.score ?? 0) > 0);
+        const scored = mockDocuments
+            .filter((doc) => matchesFilters(doc, filters))
+            .map((doc) => ({
+                ...doc,
+                score: scoreDocument(doc, terms),
+            }))
+            .filter((doc) => (doc.score ?? 0) > 0);
 
         return scored.sort((a, b) => (b.score ?? 0) - (a.score ?? 0)).slice(0, limit);
     }

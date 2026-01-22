@@ -1,10 +1,11 @@
-import type { RetrievalDocument, RetrievalRepo } from '../../repo/retrievalRepo';
+import type { RetrievalDocument, RetrievalFilters, RetrievalRepo } from '../../repo/retrievalRepo';
 import { retrieveDocuments } from './retrieve.ts';
 import { rerankDocuments } from './rerank.ts';
 
 export type RagToolInput = {
     query: string;
     limit?: number;
+    filters?: RetrievalFilters;
 };
 
 export type RagToolResult = {
@@ -37,10 +38,11 @@ const serializeDocuments = (documents: RetrievalDocument[]) =>
 export const createRetrieveTool = (repo: RetrievalRepo): RagTool => ({
     name: 'retrieve',
     description: 'Retrieve information related to a query.',
-    async run({ query, limit }: RagToolInput) {
+    async run({ query, limit, filters }: RagToolInput) {
         const documents = await retrieveDocuments(repo, {
             query,
             limit: limit ?? DEFAULT_LIMIT,
+            filters,
         });
 
         const reranked = await rerankDocuments({

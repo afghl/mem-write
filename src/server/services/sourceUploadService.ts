@@ -1,10 +1,13 @@
 import { OpenAIEmbedding } from '@llamaindex/openai';
+import { randomUUID } from 'crypto';
 import { ChromaRetrievalRepo } from '@/server/infra/chromaRetrievalRepo';
 import { createFilePipeline, createYoutubePipeline, runEtlPipeline } from '@/server/domain/etl/pipeline';
 import type { SourceInput } from '@/server/domain/etl/types';
 import { getYouTubeVideoId } from '@/server/domain/etl/steps/load';
+import { getSupabaseSourceRepo } from '@/server/infra/supabaseSourceRepo';
 
 type UploadSourcePayload = {
+    projectId: string;
     file?: {
         filename: string;
         data: Buffer;
@@ -57,17 +60,44 @@ const createEmbedder = () => {
 };
 
 export async function enqueueSourceUpload(payload: UploadSourcePayload) {
+    const sourceRepo = getSupabaseSourceRepo();
+    if (!sourceRepo) {
+        throw new Error('Supabase is not configured for source storage.');
+    }
+
     const retrievalRepo = createChromaRetrievalRepo();
     const embedder = createEmbedder();
+    const sourceId = randomUUID();
 
     if (payload.file) {
         const pipeline = createFilePipeline({ embedder, retrievalRepo });
+        await sourceRepo.createSource({
+            id: sourceId,
+            project_id: payload.projectId,
+            source_type: 'pdf',
+            title: payload.file.filename,
+            filename: payload.file.filename,
+            status: 'processing',
+        });
         const source: SourceInput = {
             type: 'pdf',
             filename: payload.file.filename,
             data: payload.file.data,
+            sourceId,
+            projectId: payload.projectId,
         };
-        return runEtlPipeline(pipeline, source);
+        try {
+            const result = await runEtlPipeline(pipeline, source);
+            await sourceRepo.updateSourceStatus({
+                id: sourceId,
+                status: 'ready',
+                chunk_count: result.count,
+            });
+            return result;
+        } catch (error) {
+            await sourceRepo.updateSourceStatus({ id: sourceId, status: 'failed' });
+            throw error;
+        }
     }
 
     if (payload.url) {
@@ -76,12 +106,33 @@ export async function enqueueSourceUpload(payload: UploadSourcePayload) {
             throw new Error('Only YouTube URLs are supported.');
         }
         const pipeline = createYoutubePipeline({ embedder, retrievalRepo });
+        await sourceRepo.createSource({
+            id: sourceId,
+            project_id: payload.projectId,
+            source_type: 'youtube',
+            title: payload.url,
+            source_url: payload.url,
+            status: 'processing',
+        });
         const source: SourceInput = {
             type: 'youtube',
             url: payload.url,
             videoId,
+            sourceId,
+            projectId: payload.projectId,
         };
-        return runEtlPipeline(pipeline, source);
+        try {
+            const result = await runEtlPipeline(pipeline, source);
+            await sourceRepo.updateSourceStatus({
+                id: sourceId,
+                status: 'ready',
+                chunk_count: result.count,
+            });
+            return result;
+        } catch (error) {
+            await sourceRepo.updateSourceStatus({ id: sourceId, status: 'failed' });
+            throw error;
+        }
     }
 
     throw new Error('Missing source input.');

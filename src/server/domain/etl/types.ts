@@ -1,6 +1,11 @@
+type SourceBase = {
+    sourceId?: string;
+    projectId?: string;
+};
+
 export type SourceInput =
-    | { type: 'pdf'; filename: string; data: Buffer }
-    | { type: 'youtube'; url: string; videoId: string };
+    | ({ type: 'pdf'; filename: string; data: Buffer } & SourceBase)
+    | ({ type: 'youtube'; url: string; videoId: string } & SourceBase);
 
 export type LoadedSource = {
     sourceId: string;

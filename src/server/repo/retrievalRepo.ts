@@ -9,6 +9,12 @@ export type RetrievalDocument = {
 export type RetrievalQuery = {
     query: string;
     limit: number;
+    filters?: RetrievalFilters;
+};
+
+export type RetrievalFilters = {
+    projectId?: string;
+    sourceIds?: string[];
 };
 
 export type RetrievalUpsertDocument = {

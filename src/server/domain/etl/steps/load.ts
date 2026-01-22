@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import type { LoadedSource, SourceInput } from '../types';
-import { decodeHtmlEntities, normalizeWhitespace } from '../utils';
+import { normalizeWhitespace } from '../utils';
 
 export type PdfTextExtractor = (payload: Buffer) => Promise<string>;
 
@@ -37,28 +37,50 @@ const parseYouTubeVideoId = (value: string) => {
     return null;
 };
 
-const loadYoutubeTranscript = async (videoId: string, fetcher: typeof fetch) => {
-    const transcriptUrls = [
-        `https://www.youtube.com/api/timedtext?lang=en&v=${videoId}`,
-        `https://www.youtube.com/api/timedtext?lang=zh&v=${videoId}`,
-        `https://www.youtube.com/api/timedtext?lang=zh-Hans&v=${videoId}`,
-    ];
-
-    for (const url of transcriptUrls) {
-        const response = await fetcher(url);
-        if (!response.ok) continue;
-        const xml = await response.text();
-        const lines: string[] = [];
-        const regex = /<text[^>]*>([\s\S]*?)<\/text>/gi;
-        let match: RegExpExecArray | null;
-        while ((match = regex.exec(xml)) !== null) {
-            lines.push(decodeHtmlEntities(match[1] ?? ''));
-        }
-        const text = normalizeWhitespace(lines.join(' '));
-        if (text) return text;
+const loadYoutubeTranscript = async (
+    sourceUrl: string,
+    fetcher: typeof fetch,
+) => {
+    const apiKey = process.env.SUPEDATA_API_KEY?.trim();
+    if (!apiKey) {
+        throw new Error('SUPEDATA_API_KEY is not set.');
     }
 
-    throw new Error('YouTube transcript is unavailable.');
+    const endpoint = new URL('https://api.supadata.ai/v1/youtube/transcript');
+    endpoint.searchParams.set('url', sourceUrl);
+    endpoint.searchParams.set('text', 'true');
+
+    const response = await fetcher(endpoint, {
+        headers: {
+            'x-api-key': apiKey,
+        },
+    });
+    if (!response.ok) {
+        throw new Error(`Supadata transcript request failed (${response.status}).`);
+    }
+
+    const contentType = response.headers.get('content-type') ?? '';
+    const payload = await response.text();
+    let transcript = payload;
+
+    if (contentType.includes('application/json')) {
+        try {
+            const data = JSON.parse(payload) as { text?: string } | string;
+            if (typeof data === 'string') {
+                transcript = data;
+            } else if (typeof data?.text === 'string') {
+                transcript = data.text;
+            }
+        } catch {
+            // Fall back to raw payload if JSON parsing fails.
+        }
+    }
+
+    const text = normalizeWhitespace(transcript ?? '');
+    if (!text) {
+        throw new Error('YouTube transcript is unavailable.');
+    }
+    return text;
 };
 
 export const createLoadFileStep = (deps: LoadDependencies = {}): LoadStep => {
@@ -95,7 +117,7 @@ export const createLoadYtbVideoStep = (deps: LoadDependencies = {}): LoadStep =>
         if (!videoId) {
             throw new Error('Invalid YouTube URL.');
         }
-        const text = await loadYoutubeTranscript(videoId, fetcher);
+        const text = await loadYoutubeTranscript(input.url, fetcher);
         return {
             sourceId,
             text,

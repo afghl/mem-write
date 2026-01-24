@@ -5,7 +5,7 @@ type StreamQaChatParams = {
     threadId?: string | null;
     message: string;
     projectId: string;
-    selectedDocumentIds?: string[];
+    sourceIds?: string[];
     onChunk: (chunk: string) => void;
     onThreadId?: (threadId: string) => void;
 };
@@ -25,7 +25,7 @@ export async function streamQaChat({
     threadId,
     message,
     projectId,
-    selectedDocumentIds,
+    sourceIds,
     onChunk,
     onThreadId,
 }: StreamQaChatParams) {
@@ -33,8 +33,8 @@ export async function streamQaChat({
         ...(threadId ? { thread_id: threadId } : {}),
         message,
         project_id: projectId,
-        ...(selectedDocumentIds && selectedDocumentIds.length > 0
-            ? { selectedDocumentIds }
+        ...(sourceIds && sourceIds.length > 0
+            ? { source_ids: sourceIds }
             : {}),
     };
     return fetchEventStream(

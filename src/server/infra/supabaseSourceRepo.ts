@@ -64,6 +64,19 @@ const createSupabaseSourceRepo = (
                 `/${tableName}${params}`,
             );
         },
+        async listSourcesByIds(projectId: string, sourceIds: string[]) {
+            if (!sourceIds || sourceIds.length === 0) return [];
+            const params = buildQuery({
+                select:
+                    'id,project_id,source_type,title,description,source_url,filename,status,chunk_count,created_at',
+                project_id: `eq.${projectId}`,
+                id: `in.(${sourceIds.join(',')})`,
+            });
+            return supabaseRequest<SourceRow[]>(
+                restConfig,
+                `/${tableName}${params}`,
+            );
+        },
     };
 };
 

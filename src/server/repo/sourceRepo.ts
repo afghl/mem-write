@@ -21,4 +21,5 @@ export type SourceRepo = {
     createSource: (input: CreateSourceInput) => Promise<void>;
     updateSourceStatus: (input: UpdateSourceStatusInput) => Promise<void>;
     listSourcesByProjectId: (projectId: string) => Promise<SourceRow[]>;
+    listSourcesByIds: (projectId: string, sourceIds: string[]) => Promise<SourceRow[]>;
 };

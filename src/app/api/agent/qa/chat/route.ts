@@ -6,11 +6,11 @@ type ChatRequest = {
     message: string;
     thread_id?: string;
     project_id?: string;
-    selectedDocumentIds?: string[];
+    source_ids?: string[];
 };
 
 export async function POST(request: NextRequest) {
-    const { message, thread_id, project_id, selectedDocumentIds } =
+    const { message, thread_id, project_id, source_ids } =
         (await request.json()) as ChatRequest;
     if (!message || typeof message !== 'string' || !message.trim()) {
         return new Response(JSON.stringify({ error: 'Message is required.' }), {
@@ -25,15 +25,15 @@ export async function POST(request: NextRequest) {
         });
     }
 
-    if (selectedDocumentIds && !Array.isArray(selectedDocumentIds)) {
-        return new Response(JSON.stringify({ error: 'selectedDocumentIds must be an array.' }), {
+    if (source_ids && !Array.isArray(source_ids)) {
+        return new Response(JSON.stringify({ error: 'source_ids must be an array.' }), {
             status: 400,
             headers: { 'Content-Type': 'application/json' },
         });
     }
 
     const threadId = thread_id?.trim() || randomUUID();
-    const selectedIds = selectedDocumentIds
+    const selectedIds = source_ids
         ?.filter((id) => typeof id === 'string')
         .map((id) => id.trim())
         .filter(Boolean);

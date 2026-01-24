@@ -173,7 +173,7 @@ export default function ProjectPage() {
         threadId,
         message: content,
         projectId,
-        selectedDocumentIds: selectedSourceIds,
+        sourceIds: selectedSourceIds,
         onChunk: appendAssistantChunk,
         onThreadId: (nextThreadId) => {
           if (!nextThreadId || nextThreadId === threadId) return;

@@ -1,10 +1,6 @@
 import { getSupabaseRestConfig, supabaseRequest, type SupabaseRestConfig } from './supabaseRest';
-import type {
-    CreateSourceInput,
-    SourceRepo,
-    SourceRow,
-    UpdateSourceStatusInput,
-} from '../repo/sourceRepo';
+import type { SourceRow } from '@/server/domain/source/entity';
+import type { CreateSourceInput, SourceRepo, UpdateSourceStatusInput } from '../repo/sourceRepo';
 
 type SupabaseSourceRepoOptions = {
     tableName?: string;
@@ -59,7 +55,7 @@ const createSupabaseSourceRepo = (
         async listSourcesByProjectId(projectId: string) {
             const params = buildQuery({
                 select:
-                    'id,project_id,source_type,title,source_url,filename,status,chunk_count,created_at',
+                    'id,project_id,source_type,title,description,source_url,filename,status,chunk_count,created_at',
                 project_id: `eq.${projectId}`,
                 order: 'created_at.desc',
             });

@@ -1,4 +1,4 @@
-import type { CreatePipelineParams, EtlPipeline, SourceInput } from './types';
+import type { CreatePipelineParams, EtlPipeline, LoadedSource, SourceInput } from './types';
 import { createLoadFileStep, createLoadYtbVideoStep } from './steps/load';
 import { createSplitStep } from './steps/split';
 import { createEnrichStep } from './steps/enrich';
@@ -34,6 +34,14 @@ export const createYoutubePipeline = ({
 
 export const runEtlPipeline = async (pipeline: EtlPipeline, source: SourceInput) => {
     const loaded = await pipeline.load(source);
+    const split = await pipeline.split(loaded);
+    const enriched = await pipeline.enrich(split);
+    const transformed = await pipeline.transform(enriched);
+    const embedded = await pipeline.embed(transformed);
+    return pipeline.save(embedded);
+};
+
+export const runEtlPipelineFromLoaded = async (pipeline: EtlPipeline, loaded: LoadedSource) => {
     const split = await pipeline.split(loaded);
     const enriched = await pipeline.enrich(split);
     const transformed = await pipeline.transform(enriched);

@@ -1,9 +1,15 @@
 import { OpenAIEmbedding } from '@llamaindex/openai';
 import { randomUUID } from 'crypto';
 import { ChromaRetrievalRepo } from '@/server/infra/chromaRetrievalRepo';
-import { createFilePipeline, createYoutubePipeline, runEtlPipeline } from '@/server/domain/etl/pipeline';
-import type { SourceInput } from '@/server/domain/etl/types';
+import {
+    createFilePipeline,
+    createYoutubePipeline,
+    runEtlPipeline,
+    runEtlPipelineFromLoaded,
+} from '@/server/domain/etl/pipeline';
+import type { LoadedSource, SourceInput } from '@/server/domain/etl/types';
 import { getYouTubeVideoId } from '@/server/domain/etl/steps/load';
+import { summarizeSourceContent } from '@/server/domain/source/summarize';
 import { getSupabaseSourceRepo } from '@/server/infra/supabaseSourceRepo';
 
 type UploadSourcePayload = {
@@ -59,6 +65,33 @@ const createEmbedder = () => {
     });
 };
 
+const runPipelineWithStatus = async (
+    sourceRepo: ReturnType<typeof getSupabaseSourceRepo>,
+    sourceId: string,
+    pipeline: ReturnType<typeof createFilePipeline> | ReturnType<typeof createYoutubePipeline>,
+    source?: SourceInput,
+    loaded?: LoadedSource,
+) => {
+    if (!sourceRepo) {
+        throw new Error('Supabase is not configured for source storage.');
+    }
+
+    try {
+        const result = loaded
+            ? await runEtlPipelineFromLoaded(pipeline, loaded)
+            : await runEtlPipeline(pipeline, source as SourceInput);
+        await sourceRepo.updateSourceStatus({
+            id: sourceId,
+            status: 'ready',
+            chunk_count: result.count,
+        });
+        return result;
+    } catch (error) {
+        await sourceRepo.updateSourceStatus({ id: sourceId, status: 'failed' });
+        throw error;
+    }
+};
+
 export async function enqueueSourceUpload(payload: UploadSourcePayload) {
     const sourceRepo = getSupabaseSourceRepo();
     if (!sourceRepo) {
@@ -71,14 +104,6 @@ export async function enqueueSourceUpload(payload: UploadSourcePayload) {
 
     if (payload.file) {
         const pipeline = createFilePipeline({ embedder, retrievalRepo });
-        await sourceRepo.createSource({
-            id: sourceId,
-            project_id: payload.projectId,
-            source_type: 'pdf',
-            title: payload.file.filename,
-            filename: payload.file.filename,
-            status: 'processing',
-        });
         const source: SourceInput = {
             type: 'pdf',
             filename: payload.file.filename,
@@ -86,18 +111,27 @@ export async function enqueueSourceUpload(payload: UploadSourcePayload) {
             sourceId,
             projectId: payload.projectId,
         };
+        const loaded = await pipeline.load(source);
+        const fallbackTitle = payload.file.filename;
+        let summary = { title: fallbackTitle, description: '' };
         try {
-            const result = await runEtlPipeline(pipeline, source);
-            await sourceRepo.updateSourceStatus({
-                id: sourceId,
-                status: 'ready',
-                chunk_count: result.count,
+            summary = await summarizeSourceContent({
+                text: loaded.text,
+                fallbackTitle,
             });
-            return result;
         } catch (error) {
-            await sourceRepo.updateSourceStatus({ id: sourceId, status: 'failed' });
-            throw error;
+            console.warn('Failed to summarize source content:', error);
         }
+        await sourceRepo.createSource({
+            id: sourceId,
+            project_id: payload.projectId,
+            source_type: 'pdf',
+            title: summary.title,
+            description: summary.description,
+            filename: payload.file.filename,
+            status: 'processing',
+        });
+        return runPipelineWithStatus(sourceRepo, sourceId, pipeline, source, loaded);
     }
 
     if (payload.url) {
@@ -106,14 +140,6 @@ export async function enqueueSourceUpload(payload: UploadSourcePayload) {
             throw new Error('Only YouTube URLs are supported.');
         }
         const pipeline = createYoutubePipeline({ embedder, retrievalRepo });
-        await sourceRepo.createSource({
-            id: sourceId,
-            project_id: payload.projectId,
-            source_type: 'youtube',
-            title: payload.url,
-            source_url: payload.url,
-            status: 'processing',
-        });
         const source: SourceInput = {
             type: 'youtube',
             url: payload.url,
@@ -121,18 +147,27 @@ export async function enqueueSourceUpload(payload: UploadSourcePayload) {
             sourceId,
             projectId: payload.projectId,
         };
+        const loaded = await pipeline.load(source);
+        const fallbackTitle = payload.url;
+        let summary = { title: fallbackTitle, description: '' };
         try {
-            const result = await runEtlPipeline(pipeline, source);
-            await sourceRepo.updateSourceStatus({
-                id: sourceId,
-                status: 'ready',
-                chunk_count: result.count,
+            summary = await summarizeSourceContent({
+                text: loaded.text,
+                fallbackTitle,
             });
-            return result;
         } catch (error) {
-            await sourceRepo.updateSourceStatus({ id: sourceId, status: 'failed' });
-            throw error;
+            console.warn('Failed to summarize source content:', error);
         }
+        await sourceRepo.createSource({
+            id: sourceId,
+            project_id: payload.projectId,
+            source_type: 'youtube',
+            title: summary.title,
+            description: summary.description,
+            source_url: payload.url,
+            status: 'processing',
+        });
+        return runPipelineWithStatus(sourceRepo, sourceId, pipeline, source, loaded);
     }
 
     throw new Error('Missing source input.');

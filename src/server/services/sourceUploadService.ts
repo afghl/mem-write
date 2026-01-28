@@ -65,6 +65,35 @@ const createEmbedder = () => {
     });
 };
 
+type YoutubeVideoApiResponse = {
+    items?: Array<{
+        snippet?: {
+            title?: string;
+        };
+    }>;
+};
+
+const fetchYoutubeTitle = async (videoId: string) => {
+    const apiKey = getEnvValue('YOUTUBE_API_KEY');
+    if (!apiKey) {
+        return undefined;
+    }
+
+    const endpoint = new URL('https://www.googleapis.com/youtube/v3/videos');
+    endpoint.searchParams.set('part', 'snippet');
+    endpoint.searchParams.set('id', videoId);
+    endpoint.searchParams.set('key', apiKey);
+
+    const response = await fetch(endpoint);
+    if (!response.ok) {
+        throw new Error(`YouTube title request failed (${response.status}).`);
+    }
+
+    const data = (await response.json()) as YoutubeVideoApiResponse;
+    const title = data.items?.[0]?.snippet?.title?.trim();
+    return title || undefined;
+};
+
 const runPipelineWithStatus = async (
     sourceRepo: ReturnType<typeof getSupabaseSourceRepo>,
     sourceId: string,
@@ -148,22 +177,21 @@ export async function enqueueSourceUpload(payload: UploadSourcePayload) {
             projectId: payload.projectId,
         };
         const loaded = await pipeline.load(source);
-        const fallbackTitle = payload.url;
-        let summary = { title: fallbackTitle, description: '' };
+        let title = payload.url;
         try {
-            summary = await summarizeSourceContent({
-                text: loaded.text,
-                fallbackTitle,
-            });
+            const fetchedTitle = await fetchYoutubeTitle(videoId);
+            if (fetchedTitle) {
+                title = fetchedTitle;
+            }
         } catch (error) {
-            console.warn('Failed to summarize source content:', error);
+            console.warn('Failed to fetch YouTube title:', error);
         }
         await sourceRepo.createSource({
             id: sourceId,
             project_id: payload.projectId,
             source_type: 'youtube',
-            title: summary.title,
-            description: summary.description,
+            title,
+            description: '',
             source_url: payload.url,
             status: 'processing',
         });

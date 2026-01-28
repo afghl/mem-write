@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { getSupabaseCreationRepo } from '@/server/infra/supabaseCreationRepo';
 import type { ArticleRow, CreationRow } from '@/server/repo/creationRepo';
 
@@ -73,6 +74,17 @@ export async function getCreationDetail(projectId: string, creationId: string) {
   };
 }
 
+export async function ensureCreationThread(projectId: string, creationId: string) {
+  const repo = requireRepo();
+  const creation = await repo.getCreationById(projectId, creationId);
+  if (!creation) return null;
+  const existingThread = await repo.getThreadByCreationId(creation.id);
+  if (existingThread?.thread_id) return existingThread.thread_id;
+  const threadId = randomUUID();
+  await repo.upsertThread({ creation_id: creation.id, thread_id: threadId });
+  return threadId;
+}
+
 export async function updateCreation(
   projectId: string,
   creationId: string,
@@ -110,6 +122,21 @@ export async function updateArticleContent(
     id: articleId,
     project_id: projectId,
     content_markdown,
+  });
+}
+
+export async function appendCreationMessage(params: {
+  creationId: string;
+  threadId: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+}) {
+  const repo = requireRepo();
+  return repo.appendMessage({
+    creation_id: params.creationId,
+    thread_id: params.threadId,
+    role: params.role,
+    content: params.content,
   });
 }
 

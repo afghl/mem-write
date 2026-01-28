@@ -17,7 +17,7 @@ export default function CreationChatPanel({
   isSending,
 }: CreationChatPanelProps) {
   return (
-    <div className="flex-1 flex flex-col bg-white rounded-[24px] border border-gray-200/60 shadow-sm overflow-hidden">
+    <div className="flex-1 flex flex-col bg-white rounded-[14px] border border-gray-200/60 shadow-sm overflow-hidden">
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
         {messages.length === 0 ? (
           <div className="text-sm text-gray-400 text-center pt-20">从这里开始你的创作对话</div>
@@ -28,11 +28,10 @@ export default function CreationChatPanel({
             className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             <div
-              className={`max-w-[70%] rounded-2xl px-4 py-3 text-sm shadow-sm whitespace-pre-wrap ${
-                message.role === 'user'
+              className={`max-w-[70%] rounded-2xl px-4 py-3 text-sm shadow-sm whitespace-pre-wrap ${message.role === 'user'
                   ? 'bg-gray-900 text-white'
                   : 'bg-gray-100 text-gray-800'
-              }`}
+                }`}
             >
               {message.content}
             </div>

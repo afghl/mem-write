@@ -30,6 +30,7 @@ const StudioCard = ({ title, icon, color, onClick }: StudioCardProps) => (
 
 type StudioColumnProps = {
   projectId: string;
+  onOpenCreation?: (creationId: string) => void;
 };
 
 const formatDateLabel = (value?: string | null) => {
@@ -45,7 +46,7 @@ const STYLE_PRESETS = [
   { label: 'Summary', icon: Sparkles, color: 'bg-purple-100' },
 ];
 
-export default function StudioColumn({ projectId }: StudioColumnProps) {
+export default function StudioColumn({ projectId, onOpenCreation }: StudioColumnProps) {
   const router = useRouter();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [dialogStyle, setDialogStyle] = useState<string | null>(null);
@@ -76,6 +77,10 @@ export default function StudioColumn({ projectId }: StudioColumnProps) {
 
   const handleCreated = (creationId: string) => {
     setRefreshKey((value) => value + 1);
+    if (onOpenCreation) {
+      onOpenCreation(creationId);
+      return;
+    }
     router.push(`/project/${projectId}/creation/${creationId}`);
   };
 
@@ -126,7 +131,13 @@ export default function StudioColumn({ projectId }: StudioColumnProps) {
             <button
               key={item.id}
               type="button"
-              onClick={() => router.push(`/project/${projectId}/creation/${item.id}`)}
+              onClick={() => {
+                if (onOpenCreation) {
+                  onOpenCreation(item.id);
+                  return;
+                }
+                router.push(`/project/${projectId}/creation/${item.id}`);
+              }}
               className="p-4 bg-yellow-50/50 border border-yellow-100 rounded-xl text-left hover:shadow-sm transition-shadow"
             >
               <h4 className="font-medium text-gray-800 text-sm mb-1">{item.title}</h4>

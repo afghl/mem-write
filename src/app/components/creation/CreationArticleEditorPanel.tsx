@@ -28,7 +28,7 @@ export default function CreationArticleEditorPanel({
   lastSavedAt,
 }: CreationArticleEditorPanelProps) {
   return (
-    <div className="flex flex-col gap-3 p-4 border-b border-gray-100">
+    <div className="flex flex-col gap-3 p-4 h-full min-h-0">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">{title || 'Untitled'}</h2>
@@ -46,7 +46,7 @@ export default function CreationArticleEditorPanel({
         value={content}
         onChange={(event) => onChange(event.target.value)}
         placeholder="开始编写你的文章..."
-        className="min-h-[260px] w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900"
+        className="flex-1 min-h-0 w-full resize-none rounded-2xl border p-4 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900"
       />
     </div>
   );

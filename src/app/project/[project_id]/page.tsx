@@ -7,6 +7,7 @@ import ChatColumn from '@/app/components/home/ChatColumn';
 import SourcesColumn from '@/app/components/home/SourcesColumn';
 import StudioColumn from '@/app/components/home/StudioColumn';
 import NavBar from '@/app/components/home/NavBar';
+import CreationEditorModal from '@/app/components/creation/CreationEditorModal';
 import { fetchQaHistory, streamQaChat } from '@/client/agent/qaClient';
 import { fetchHealthStatus } from '@/client/healthClient';
 import type { ChatMessage } from '@/types/chat';
@@ -47,6 +48,8 @@ export default function ProjectPage() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [threadId, setThreadId] = useState<string | null>(null);
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]);
+  const [isCreationOpen, setIsCreationOpen] = useState(false);
+  const [activeCreationId, setActiveCreationId] = useState<string | null>(null);
   const loadedThreadRef = useRef<string | null>(null);
   const suppressHistoryRef = useRef<string | null>(null);
 
@@ -164,6 +167,15 @@ export default function ProjectPage() {
     }
   };
 
+  const openCreation = (creationId: string) => {
+    setActiveCreationId(creationId);
+    setIsCreationOpen(true);
+  };
+
+  const closeCreation = () => {
+    setIsCreationOpen(false);
+  };
+
   if (!projectId) {
     return (
       <div className="flex items-center justify-center h-screen text-gray-500 text-sm">
@@ -196,9 +208,15 @@ export default function ProjectPage() {
           onSend={() => void handleSend()}
           isStreaming={isStreaming}
         />
-        <StudioColumn projectId={projectId} />
+        <StudioColumn projectId={projectId} onOpenCreation={openCreation} />
       </div>
 
+      <CreationEditorModal
+        open={isCreationOpen}
+        onClose={closeCreation}
+        projectId={projectId}
+        creationId={activeCreationId}
+      />
     </div>
   );
 }

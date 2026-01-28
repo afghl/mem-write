@@ -9,7 +9,7 @@ import {
   fetchCreationMessages,
   updateArticle,
 } from '@/client/creationClient';
-import { sendCreationChat } from '@/client/agent/creationClient';
+import { streamCreationEditor } from '@/client/agent/creationClient';
 import { fetchProjectSources, type SourceSummary } from '@/client/sourcesClient';
 import CreationArticleEditorPanel from './CreationArticleEditorPanel';
 import CreationSourcesPanel from './CreationSourcesPanel';
@@ -205,14 +205,91 @@ export default function CreationEditorPage({
     setMessages((prev) => [...prev, { role: 'user', content }]);
     setIsSending(true);
     try {
-      const result = await sendCreationChat({
+      const response = await streamCreationEditor({
         projectId: detail.creation.project_id,
         creationId: detail.creation.id,
         message: content,
       });
-      setMessages((prev) => [...prev, { role: 'assistant', content: result.response }]);
-      setArticleContent(result.article.content_markdown ?? '');
-      setLastSavedAt(result.article.updated_at ?? null);
+      if (!response.ok || !response.body) {
+        throw new Error(`Stream failed: ${response.status}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let assistantBuffer = '';
+
+      const updateAssistantMessage = (delta: string) => {
+        assistantBuffer += delta;
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          if (last && last.role === 'assistant') {
+            const next = prev.slice(0, -1);
+            next.push({ ...last, content: assistantBuffer });
+            return next;
+          }
+          return [...prev, { role: 'assistant', content: assistantBuffer }];
+        });
+      };
+
+      const handleEvent = (event: string, payload: unknown) => {
+        if (event === 'assistant_message') {
+          const delta =
+            payload && typeof payload === 'object' && 'delta' in payload
+              ? String((payload as { delta?: unknown }).delta ?? '')
+              : '';
+          if (delta) updateAssistantMessage(delta);
+          return;
+        }
+        if (event === 'content_update') {
+          const contentValue =
+            payload && typeof payload === 'object' && 'content' in payload
+              ? String((payload as { content?: unknown }).content ?? '')
+              : '';
+          setArticleContent(contentValue);
+          setLastSavedAt(new Date().toISOString());
+          return;
+        }
+        if (event === 'error') {
+          const messageValue =
+            payload && typeof payload === 'object' && 'message' in payload
+              ? String((payload as { message?: unknown }).message ?? '')
+              : '请求失败。';
+          setMessages((prev) => [...prev, { role: 'assistant', content: messageValue }]);
+        }
+      };
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const frames = buffer.split('\n\n');
+        buffer = frames.pop() ?? '';
+
+        for (const frame of frames) {
+          const lines = frame.split('\n');
+          let eventName = 'message';
+          const dataLines: string[] = [];
+          for (const line of lines) {
+            if (line.startsWith('event:')) {
+              eventName = line.slice(6).trim();
+              continue;
+            }
+            if (!line.startsWith('data:')) continue;
+            const chunk = line.startsWith('data: ') ? line.slice(6) : line.slice(5);
+            dataLines.push(chunk);
+          }
+          if (dataLines.length === 0) continue;
+          const dataText = dataLines.join('\n');
+          let payload: unknown = dataText;
+          try {
+            payload = JSON.parse(dataText);
+          } catch {
+            payload = dataText;
+          }
+          handleEvent(eventName, payload);
+        }
+      }
     } finally {
       setIsSending(false);
     }

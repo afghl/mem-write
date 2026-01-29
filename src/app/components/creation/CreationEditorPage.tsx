@@ -11,6 +11,7 @@ import {
 } from '@/client/creationClient';
 import { streamCreationEditor } from '@/client/agent/creationClient';
 import { fetchProjectSources, type SourceSummary } from '@/client/sourcesClient';
+import { applyTextPatch, type TextPatch } from '@/lib/textPatch';
 import CreationArticleEditorPanel from './CreationArticleEditorPanel';
 import CreationSourcesPanel from './CreationSourcesPanel';
 import CreationChatPanel from './CreationChatPanel';
@@ -55,9 +56,14 @@ export default function CreationEditorPage({
   const [sources, setSources] = useState<SourceSummary[]>([]);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [articleContent, setArticleContent] = useState('');
+  const [highlightMode, setHighlightMode] = useState<'pattern' | 'replacement' | null>(null);
+  const [isAnimatingPatch, setIsAnimatingPatch] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const leftColumnRef = useRef<HTMLDivElement>(null);
   const rightColumnRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const articleContentRef = useRef(articleContent);
+  const patchQueueRef = useRef(Promise.resolve());
   const [leftWidth, setLeftWidth] = useState<number | null>(null);
   const [articlePanelHeight, setArticlePanelHeight] = useState<number | null>(null);
 
@@ -96,6 +102,74 @@ export default function CreationEditorPage({
     };
     void loadSources();
   }, [projectId, detail?.creation.source_ids]);
+
+  useEffect(() => {
+    articleContentRef.current = articleContent;
+  }, [articleContent]);
+
+  const delay = (ms: number) =>
+    new Promise<void>((resolve) => {
+      window.setTimeout(resolve, ms);
+    });
+
+  const nextFrame = () =>
+    new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => resolve());
+    });
+
+  const scrollToMatchIndex = (textarea: HTMLTextAreaElement, matchIndex: number) => {
+    const style = window.getComputedStyle(textarea);
+    const lineHeight = Number.parseFloat(style.lineHeight || '0') || 20;
+    const paddingTop = Number.parseFloat(style.paddingTop || '0') || 0;
+    const before = textarea.value.slice(0, matchIndex);
+    const lineCount = before.split('\n').length - 1;
+    const targetTop = Math.max(0, lineCount * lineHeight + paddingTop - textarea.clientHeight / 3);
+    textarea.scrollTo({ top: targetTop, behavior: 'smooth' });
+  };
+
+  const runPatchAnimation = async (patch: TextPatch) => {
+    const current = articleContentRef.current;
+    const result = applyTextPatch(current, patch);
+    if (!result.applied || result.matchIndex === undefined) {
+      setArticleContent(result.content);
+      return;
+    }
+
+    const textarea = textareaRef.current;
+    if (!textarea) {
+      setArticleContent(result.content);
+      setLastSavedAt(new Date().toISOString());
+      return;
+    }
+
+    setIsAnimatingPatch(true);
+    setHighlightMode('pattern');
+    await nextFrame();
+    textarea.focus();
+    textarea.setSelectionRange(result.matchIndex, result.matchIndex + patch.pattern.length);
+    scrollToMatchIndex(textarea, result.matchIndex);
+    await delay(900);
+
+    setArticleContent(result.content);
+    await nextFrame();
+    setHighlightMode('replacement');
+    textarea.setSelectionRange(result.matchIndex, result.matchIndex + patch.replacement.length);
+    await delay(900);
+
+    setHighlightMode(null);
+    textarea.setSelectionRange(
+      result.matchIndex + patch.replacement.length,
+      result.matchIndex + patch.replacement.length,
+    );
+    setIsAnimatingPatch(false);
+    setLastSavedAt(new Date().toISOString());
+  };
+
+  const enqueuePatchAnimation = (patch: TextPatch) => {
+    patchQueueRef.current = patchQueueRef.current
+      .then(() => runPatchAnimation(patch))
+      .catch(() => { });
+  };
 
   useEffect(() => {
     if (!enableResize) return;
@@ -241,6 +315,19 @@ export default function CreationEditorPage({
           if (delta) updateAssistantMessage(delta);
           return;
         }
+        if (event === 'text_patch') {
+          if (!payload || typeof payload !== 'object') return;
+          const patchValue =
+            'patch' in payload ? (payload as { patch?: unknown }).patch : payload;
+          if (!patchValue || typeof patchValue !== 'object') return;
+          const pattern = String((patchValue as { pattern?: unknown }).pattern ?? '');
+          const replacement = String(
+            (patchValue as { replacement?: unknown }).replacement ?? '',
+          );
+          if (!pattern) return;
+          enqueuePatchAnimation({ pattern, replacement });
+          return;
+        }
         if (event === 'content_update') {
           const contentValue =
             payload && typeof payload === 'object' && 'content' in payload
@@ -328,6 +415,9 @@ export default function CreationEditorPage({
             onSave={handleSave}
             isSaving={isSaving}
             lastSavedAt={lastSavedAt}
+            textareaRef={textareaRef}
+            isAnimating={isAnimatingPatch}
+            highlightMode={highlightMode}
           />
         </div>
         {enableResize ? (

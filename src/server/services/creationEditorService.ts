@@ -42,7 +42,38 @@ const isToolEndEvent = (event: CreationEditorStreamEvent) => event.event === 'on
 
 const getLanggraphNode = (event: CreationEditorStreamEvent) => event.metadata?.langgraph_node;
 
-const getToolOutput = (event: CreationEditorStreamEvent) => event.data?.output;
+const tryParseJson = (value: string) => {
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return undefined;
+  }
+};
+
+const unwrapToolOutput = (value: unknown): unknown => {
+  if (!value) return value;
+  if (typeof value === 'string') return tryParseJson(value) ?? value;
+  if (Array.isArray(value)) {
+    if (value.length === 1) return unwrapToolOutput(value[0]);
+    return value;
+  }
+  if (typeof value !== 'object') return value;
+
+  const asRecord = value as Record<string, unknown>;
+  if (Array.isArray(asRecord.messages) && asRecord.messages.length > 0) {
+    return unwrapToolOutput(asRecord.messages[asRecord.messages.length - 1]);
+  }
+  if ('output' in asRecord) return unwrapToolOutput(asRecord.output);
+  if ('content' in asRecord && typeof asRecord.content === 'string') {
+    return tryParseJson(asRecord.content) ?? asRecord.content;
+  }
+  if ('kwargs' in asRecord) return unwrapToolOutput(asRecord.kwargs);
+
+  return value;
+};
+
+const getToolOutput = (event: CreationEditorStreamEvent) =>
+  unwrapToolOutput(event.data?.output);
 
 const isTextPatchOutput = (output: unknown): output is {
   type: 'text_patch';
@@ -127,7 +158,6 @@ export async function streamCreationEditorChat({
               const output = getToolOutput(event);
               if (isTextPatchOutput(output)) {
                 sendEvent('text_patch', output);
-                sendEvent('content_update', { content: output.content });
                 continue;
               }
               if (isContentSetOutput(output)) {

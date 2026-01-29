@@ -1,3 +1,5 @@
+import type { RefObject } from 'react';
+
 type CreationArticleEditorPanelProps = {
   title: string;
   content: string;
@@ -5,6 +7,9 @@ type CreationArticleEditorPanelProps = {
   onSave: () => void;
   isSaving: boolean;
   lastSavedAt?: string | null;
+  textareaRef?: RefObject<HTMLTextAreaElement>;
+  isAnimating?: boolean;
+  highlightMode?: 'pattern' | 'replacement' | null;
 };
 
 const formatSavedAt = (value?: string | null) => {
@@ -26,7 +31,17 @@ export default function CreationArticleEditorPanel({
   onSave,
   isSaving,
   lastSavedAt,
+  textareaRef,
+  isAnimating = false,
+  highlightMode = null,
 }: CreationArticleEditorPanelProps) {
+  const selectionClass =
+    highlightMode === 'pattern'
+      ? 'selection:bg-red-200 selection:text-red-900'
+      : highlightMode === 'replacement'
+        ? 'selection:bg-emerald-200 selection:text-emerald-900'
+        : '';
+
   return (
     <div className="flex flex-col gap-3 p-4 h-full min-h-0">
       <div className="flex items-center justify-between">
@@ -43,10 +58,12 @@ export default function CreationArticleEditorPanel({
         </button>
       </div>
       <textarea
+        ref={textareaRef}
         value={content}
         onChange={(event) => onChange(event.target.value)}
+        readOnly={isAnimating}
         placeholder="开始编写你的文章..."
-        className="flex-1 min-h-0 w-full resize-none rounded-2xl border p-4 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900"
+        className={`flex-1 min-h-0 w-full resize-none rounded-2xl border p-4 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 ${selectionClass} ${isAnimating ? 'cursor-wait' : ''}`}
       />
     </div>
   );

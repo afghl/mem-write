@@ -131,6 +131,7 @@ export const createArticleTools = (
 
   const applyArticlePatchTool = tool(
     async ({ pattern, replacement }: { pattern: string; replacement: string }) => {
+      console.log("applyArticlePatchTool... pattern: %s, replacement: %s", pattern, replacement);
       const article = await repo.getArticleById(projectId, articleId);
       if (!article) {
         return {

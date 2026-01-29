@@ -1,7 +1,6 @@
 import { streamCreationEditorEvents } from '@/server/domain/agent/creationEditorAgent';
 import type { CreationEditorStreamEvent } from '@/server/domain/agent/creationEditorAgent';
 import {
-  appendCreationMessage,
   ensureCreationThread,
   getCreationDetail,
 } from '@/server/services/creationService';
@@ -116,13 +115,6 @@ export async function streamCreationEditorChat({
     throw new Error('Failed to resolve creation thread id.');
   }
 
-  await appendCreationMessage({
-    creationId: detail.creation.id,
-    threadId,
-    role: 'user',
-    content: message,
-  });
-
   const streamEvents = await streamCreationEditorEvents({
     threadId,
     message,
@@ -132,7 +124,6 @@ export async function streamCreationEditorChat({
   });
 
   const encoder = new TextEncoder();
-  let assistantText = '';
 
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
@@ -149,7 +140,6 @@ export async function streamCreationEditorChat({
               if (node && node !== 'agent') continue;
               const text = getChunkText(event.data.chunk);
               if (!text) continue;
-              assistantText += text;
               sendEvent('assistant_message', { delta: text });
               continue;
             }
@@ -164,15 +154,6 @@ export async function streamCreationEditorChat({
                 sendEvent('content_update', { content: output.content });
               }
             }
-          }
-
-          if (assistantText.trim()) {
-            await appendCreationMessage({
-              creationId: detail.creation.id,
-              threadId,
-              role: 'assistant',
-              content: assistantText,
-            });
           }
 
           sendEvent('done', { status: 'ok' });

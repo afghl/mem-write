@@ -41,8 +41,7 @@ export async function createCreation({ projectId, style, sourceIds, title }: Cre
     style,
     source_ids: sourceIds,
   });
-  const thread = await repo.getThreadByCreationId(creation.id);
-  return { creation, article, thread_id: thread?.thread_id ?? null };
+  return { creation, article, thread_id: creation.thread_id ?? null };
 }
 
 export async function listCreations(projectId: string): Promise<CreationListItem[]> {
@@ -66,11 +65,10 @@ export async function getCreationDetail(projectId: string, creationId: string) {
   const creation = await repo.getCreationById(projectId, creationId);
   if (!creation) return null;
   const article = await repo.getArticleById(projectId, creation.article_id);
-  const thread = await repo.getThreadByCreationId(creation.id);
   return {
     creation,
     article: article as ArticleRow,
-    thread_id: thread?.thread_id ?? null,
+    thread_id: creation.thread_id ?? null,
   };
 }
 
@@ -78,10 +76,13 @@ export async function ensureCreationThread(projectId: string, creationId: string
   const repo = requireRepo();
   const creation = await repo.getCreationById(projectId, creationId);
   if (!creation) return null;
-  const existingThread = await repo.getThreadByCreationId(creation.id);
-  if (existingThread?.thread_id) return existingThread.thread_id;
+  if (creation.thread_id) return creation.thread_id;
   const threadId = randomUUID();
-  await repo.upsertThread({ creation_id: creation.id, thread_id: threadId });
+  await repo.updateCreation({
+    id: creation.id,
+    project_id: creation.project_id,
+    thread_id: threadId,
+  });
   return threadId;
 }
 
@@ -99,11 +100,10 @@ export async function updateCreation(
   });
   if (!creation) return null;
   const article = await repo.getArticleById(projectId, creation.article_id);
-  const thread = await repo.getThreadByCreationId(creation.id);
   return {
     creation,
     article: article as ArticleRow,
-    thread_id: thread?.thread_id ?? null,
+    thread_id: creation.thread_id ?? null,
   };
 }
 
@@ -125,26 +125,3 @@ export async function updateArticleContent(
   });
 }
 
-export async function appendCreationMessage(params: {
-  creationId: string;
-  threadId: string;
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-}) {
-  const repo = requireRepo();
-  return repo.appendMessage({
-    creation_id: params.creationId,
-    thread_id: params.threadId,
-    role: params.role,
-    content: params.content,
-  });
-}
-
-export async function listCreationMessages(projectId: string, creationId: string) {
-  const repo = requireRepo();
-  const creation = await repo.getCreationById(projectId, creationId);
-  if (!creation) return null;
-  const thread = await repo.getThreadByCreationId(creationId);
-  const messages = await repo.listMessagesByCreationId(creationId);
-  return { thread_id: thread?.thread_id ?? null, messages };
-}

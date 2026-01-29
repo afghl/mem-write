@@ -1,5 +1,6 @@
 import { fetchJson } from './http';
-import type { Article, Creation, CreationMessage } from '@/types/creation';
+import type { Article, Creation } from '@/types/creation';
+import type { ChatMessage } from '@/types/chat';
 
 export type CreationListItem = {
   creation: Creation;
@@ -19,7 +20,8 @@ export type CreationDetailResponse = {
 
 type CreationMessagesResponse = {
   thread_id?: string | null;
-  messages: CreationMessage[];
+  messages: ChatMessage[];
+  latest_checkpoint_id?: string | null;
 };
 
 export type CreateCreationPayload = {

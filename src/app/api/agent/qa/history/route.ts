@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { fetchQaHistory } from '@/server/services/qaHistoryService';
+import { fetchAgentHistory } from '@/server/services/agentHistoryService';
 
 export async function GET(request: NextRequest) {
     const threadId = request.nextUrl.searchParams.get('thread_id')?.trim();
@@ -11,12 +11,12 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        const history = await fetchQaHistory({ threadId });
+        const history = await fetchAgentHistory({ agent: 'qa', threadId });
         return new Response(
             JSON.stringify({
-                thread_id: threadId,
-                messages: history.messages,
-                latest_checkpoint_id: history.latestCheckpointId ?? null,
+                thread_id: history?.threadId ?? threadId,
+                messages: history?.messages ?? [],
+                latest_checkpoint_id: history?.latestCheckpointId ?? null,
             }),
             {
                 status: 200,

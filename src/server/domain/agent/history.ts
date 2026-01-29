@@ -6,11 +6,13 @@ import {
     type BaseMessage,
 } from '@langchain/core/messages';
 import { getQaAgentApp } from './qaAgent';
+import { getCreationEditorAppByThreadId } from './creationEditorAgent';
 
-export type QaChatHistoryMessage = {
+export type AgentChatHistoryMessage = {
     role: 'user' | 'assistant';
     content: string;
 };
+export type QaChatHistoryMessage = AgentChatHistoryMessage;
 
 const getMessageText = (content: BaseMessage['content']): string => {
     if (typeof content === 'string') return content;
@@ -27,7 +29,7 @@ const getMessageText = (content: BaseMessage['content']): string => {
     return '';
 };
 
-const getMessageRole = (message: BaseMessage): QaChatHistoryMessage['role'] | null => {
+const getMessageRole = (message: BaseMessage): AgentChatHistoryMessage['role'] | null => {
     if (message instanceof SystemMessage) return null;
     if (message instanceof HumanMessage) return 'user';
     if (message instanceof AIMessage) return 'assistant';
@@ -36,15 +38,21 @@ const getMessageRole = (message: BaseMessage): QaChatHistoryMessage['role'] | nu
     return null;
 };
 
-const mapMessageToChat = (message: BaseMessage): QaChatHistoryMessage | null => {
+const mapMessageToChat = (message: BaseMessage): AgentChatHistoryMessage | null => {
     const role = getMessageRole(message);
 
     if (!role) return null;
     return { role, content: getMessageText(message.content) };
 };
 
+const normalizeMessages = (messages: BaseMessage[]): AgentChatHistoryMessage[] =>
+    messages
+        .map(mapMessageToChat)
+        .filter((message): message is AgentChatHistoryMessage => Boolean(message))
+        .filter((message) => message.content.trim().length > 0);
+
 export async function getQaChatHistory(threadId: string): Promise<{
-    messages: QaChatHistoryMessage[];
+    messages: AgentChatHistoryMessage[];
     latestCheckpointId?: string;
 }> {
     const app = await getQaAgentApp();
@@ -59,10 +67,38 @@ export async function getQaChatHistory(threadId: string): Promise<{
     const existingMessages = Array.isArray(latestState?.values?.messages)
         ? (latestState?.values?.messages as BaseMessage[])
         : [];
-    const messages = existingMessages
-        .map(mapMessageToChat)
-        .filter((message): message is QaChatHistoryMessage => Boolean(message))
-        .filter((message) => message.content.trim().length > 0);
+    const messages = normalizeMessages(existingMessages);
+
+    return {
+        messages,
+        latestCheckpointId: latestState?.config?.configurable?.checkpoint_id,
+    };
+}
+
+export async function getCreationEditorHistoryByThreadId(threadId: string): Promise<{
+    messages: AgentChatHistoryMessage[];
+    latestCheckpointId?: string;
+}> {
+    const resolved = await getCreationEditorAppByThreadId(threadId);
+    if (!resolved) {
+        return {
+            messages: [],
+            latestCheckpointId: undefined,
+        };
+    }
+    const { app } = resolved;
+    const config = { configurable: { thread_id: threadId } };
+    const latestState = (await app.getState(config)) as
+        | {
+            values?: { messages?: BaseMessage[] };
+            config?: { configurable?: { checkpoint_id?: string } };
+        }
+        | null;
+
+    const existingMessages = Array.isArray(latestState?.values?.messages)
+        ? (latestState?.values?.messages as BaseMessage[])
+        : [];
+    const messages = normalizeMessages(existingMessages);
 
     return {
         messages,

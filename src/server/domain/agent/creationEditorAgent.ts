@@ -6,6 +6,7 @@ import { END, MessagesAnnotation, START, StateGraph } from '@langchain/langgraph
 import { ToolNode } from '@langchain/langgraph/prebuilt';
 import { createCheckpointer } from './checkpointSaver';
 import { getSupabaseSourceRepo } from '../../infra/supabaseSourceRepo';
+import { getSupabaseCreationRepo } from '../../infra/supabaseCreationRepo';
 import type { SourceRow } from '../source/entity';
 import type { RetrievalFilters } from '../../repo/retrievalRepo';
 import { createArticleTools } from '../article_creation/tools';
@@ -167,6 +168,22 @@ export const getCreationEditorApp = (
   cachedApps.set(key, app);
   return app;
 };
+
+export async function getCreationEditorAppByThreadId(threadId: string) {
+  const creationRepo = getSupabaseCreationRepo();
+  if (!creationRepo) {
+    throw new Error('Supabase is not configured for creation storage.');
+  }
+  const creation = await creationRepo.getCreationByThreadId(threadId);
+  if (!creation) return null;
+
+  const filters =
+    creation.source_ids && creation.source_ids.length > 0
+      ? ({ projectId: creation.project_id, sourceIds: creation.source_ids } satisfies RetrievalFilters)
+      : ({ projectId: creation.project_id } satisfies RetrievalFilters);
+  const app = await getCreationEditorApp(creation.project_id, creation.article_id, filters);
+  return { app, creation };
+}
 
 export async function streamCreationEditorEvents({
   threadId,

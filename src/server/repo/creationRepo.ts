@@ -15,25 +15,9 @@ export type CreationRow = {
   article_id: string;
   style: string;
   source_ids: string[];
+  thread_id?: string | null;
   created_at?: string;
   updated_at?: string;
-};
-
-export type CreationThreadRow = {
-  id: string;
-  creation_id: string;
-  thread_id: string;
-  created_at?: string;
-  updated_at?: string;
-};
-
-export type CreationMessageRow = {
-  id: string;
-  creation_id: string;
-  thread_id: string;
-  role: string;
-  content: string;
-  created_at?: string;
 };
 
 export type CreateArticleInput = {
@@ -55,6 +39,7 @@ export type CreateCreationInput = {
   article_id: string;
   style: string;
   source_ids: string[];
+  thread_id?: string | null;
 };
 
 export type UpdateCreationInput = {
@@ -62,18 +47,7 @@ export type UpdateCreationInput = {
   project_id: string;
   style?: string;
   source_ids?: string[];
-};
-
-export type UpsertCreationThreadInput = {
-  creation_id: string;
-  thread_id: string;
-};
-
-export type CreateCreationMessageInput = {
-  creation_id: string;
-  thread_id: string;
-  role: string;
-  content: string;
+  thread_id?: string | null;
 };
 
 export type CreationRepo = {
@@ -83,10 +57,7 @@ export type CreationRepo = {
   listArticlesByIds: (projectId: string, articleIds: string[]) => Promise<ArticleRow[]>;
   createCreation: (input: CreateCreationInput) => Promise<CreationRow>;
   getCreationById: (projectId: string, creationId: string) => Promise<CreationRow | undefined>;
+  getCreationByThreadId: (threadId: string) => Promise<CreationRow | undefined>;
   listCreationsByProjectId: (projectId: string) => Promise<CreationRow[]>;
   updateCreation: (input: UpdateCreationInput) => Promise<CreationRow | undefined>;
-  getThreadByCreationId: (creationId: string) => Promise<CreationThreadRow | undefined>;
-  upsertThread: (input: UpsertCreationThreadInput) => Promise<CreationThreadRow>;
-  listMessagesByCreationId: (creationId: string) => Promise<CreationMessageRow[]>;
-  appendMessage: (input: CreateCreationMessageInput) => Promise<CreationMessageRow>;
 };

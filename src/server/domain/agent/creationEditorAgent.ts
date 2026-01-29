@@ -4,8 +4,7 @@ import { ChatOpenAI } from '@langchain/openai';
 import { HumanMessage, SystemMessage, type BaseMessage } from '@langchain/core/messages';
 import { END, MessagesAnnotation, START, StateGraph } from '@langchain/langgraph';
 import { ToolNode } from '@langchain/langgraph/prebuilt';
-import { MemorySaver } from '@langchain/langgraph-checkpoint';
-import { createSupabaseCheckpointSaver } from './checkpointSaver';
+import { createCheckpointer } from './checkpointSaver';
 import { getSupabaseSourceRepo } from '../../infra/supabaseSourceRepo';
 import type { SourceRow } from '../source/entity';
 import type { RetrievalFilters } from '../../repo/retrievalRepo';
@@ -102,17 +101,6 @@ const buildSourceContext = async (projectId: string, sourceIds: string[]) => {
   return lines.length > 0 ? ['Sources:', ...lines].join('\n') : '';
 };
 
-const createCheckpointer = () => {
-  const supabaseSaver = createSupabaseCheckpointSaver();
-  if (!supabaseSaver) {
-    console.warn(
-      'Supabase config missing; falling back to in-memory checkpointer for creation editor.',
-    );
-    return new MemorySaver();
-  }
-  return supabaseSaver;
-};
-
 const hasToolCalls = (message?: BaseMessage) => {
   if (!message || typeof message !== 'object') return false;
   if (!('tool_calls' in message)) return false;
@@ -136,7 +124,7 @@ const buildCreationEditorApp = async (
 
   const llm = new ChatOpenAI({
     modelName,
-    temperature: 0.2,
+    temperature: 0.5,
     streaming: true,
     openAIApiKey: apiKey,
     configuration: baseURL ? { baseURL } : undefined,
@@ -161,7 +149,7 @@ const buildCreationEditorApp = async (
     })
     .addEdge('tools', 'agent');
 
-  const checkpointer = createCheckpointer();
+  const checkpointer = createCheckpointer('creation editor');
   return workflow.compile({ checkpointer });
 };
 
@@ -196,7 +184,7 @@ export async function streamCreationEditorEvents({
   const sourceContext = await buildSourceContext(projectId, sourceIds ?? []);
   const systemMessage = new SystemMessage(renderSystemPrompt(basePrompt, sourceContext));
 
-  const config = { configurable: { thread_id: threadId, checkpoint_ns: 'creation_editor' } };
+  const config = { configurable: { thread_id: threadId } };
   const state = await app.getState(config);
   const existingMessages = Array.isArray(state?.values?.messages)
     ? (state.values.messages as BaseMessage[])

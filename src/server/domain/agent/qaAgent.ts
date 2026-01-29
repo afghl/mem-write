@@ -5,11 +5,10 @@ import { HumanMessage, SystemMessage, type BaseMessage } from '@langchain/core/m
 import { tool } from '@langchain/core/tools';
 import { END, MessagesAnnotation, START, StateGraph } from '@langchain/langgraph';
 import { ToolNode } from '@langchain/langgraph/prebuilt';
-import { MemorySaver } from '@langchain/langgraph-checkpoint';
 import { createRetrieveTool } from '../retrieval/tool';
 import { ChromaRetrievalRepo } from '../../infra/chromaRetrievalRepo';
 import { MockRetrievalRepo } from '../../infra/mockRetrievalRepo';
-import { createSupabaseCheckpointSaver } from './checkpointSaver';
+import { createCheckpointer } from './checkpointSaver';
 import { getSupabaseSourceRepo } from '../../infra/supabaseSourceRepo';
 import type { SourceRow } from '../source/entity';
 import type { RetrievalFilters } from '../../repo/retrievalRepo';
@@ -233,17 +232,6 @@ const createRetrievalTool = (filters?: RetrievalFilters) => {
     );
 };
 
-const createCheckpointer = () => {
-    const supabaseSaver = createSupabaseCheckpointSaver();
-    if (!supabaseSaver) {
-        console.warn(
-            'Supabase config missing; falling back to in-memory checkpointer for QA agent.',
-        );
-        return new MemorySaver();
-    }
-    return supabaseSaver;
-};
-
 const hasToolCalls = (message?: BaseMessage) => {
     if (!message || typeof message !== 'object') return false;
     if (!('tool_calls' in message)) return false;
@@ -287,7 +275,7 @@ const buildQaAgentApp = async (filters?: RetrievalFilters) => {
         })
         .addEdge('tools', 'agent');
 
-    const checkpointer = createCheckpointer();
+    const checkpointer = createCheckpointer('QA agent');
     return workflow.compile({ checkpointer });
 };
 

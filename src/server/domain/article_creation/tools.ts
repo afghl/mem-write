@@ -4,7 +4,7 @@ import { ChromaRetrievalRepo } from '../../infra/chromaRetrievalRepo';
 import { MockRetrievalRepo } from '../../infra/mockRetrievalRepo';
 import { getSupabaseCreationRepo } from '../../infra/supabaseCreationRepo';
 import type { RetrievalFilters } from '../../repo/retrievalRepo';
-import { applyTextPatch, type TextPatch } from '../agent/textPatch';
+import { applyTextPatch, type TextPatch } from './textPatch';
 
 type TextPatchOutput = {
   type: 'text_patch';

@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
-import { listCreationMessages } from '@/server/services/creationService';
+import { fetchAgentHistory } from '@/server/services/agentHistoryService';
+import { getCreationDetail } from '@/server/services/creationService';
 
 export async function GET(
   _request: NextRequest,
@@ -15,17 +16,39 @@ export async function GET(
   }
 
   try {
-    const result = await listCreationMessages(projectId, creationId);
-    if (!result) {
+    const detail = await getCreationDetail(projectId, creationId);
+    if (!detail) {
       return new Response(JSON.stringify({ error: 'Creation not found.' }), {
         status: 404,
         headers: { 'Content-Type': 'application/json' },
       });
     }
-    return new Response(JSON.stringify(result), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const threadId = detail.thread_id ?? null;
+    if (!threadId) {
+      return new Response(
+        JSON.stringify({
+          thread_id: null,
+          messages: [],
+          latest_checkpoint_id: null,
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      );
+    }
+    const result = await fetchAgentHistory({ agent: 'creation-editor', threadId });
+    return new Response(
+      JSON.stringify({
+        thread_id: result?.threadId ?? threadId,
+        messages: result?.messages ?? [],
+        latest_checkpoint_id: result?.latestCheckpointId ?? null,
+      }),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      },
+    );
   } catch (error) {
     console.error('List creation messages failed:', error);
     return new Response(JSON.stringify({ error: 'Failed to fetch creation messages.' }), {

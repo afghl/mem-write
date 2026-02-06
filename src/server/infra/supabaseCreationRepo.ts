@@ -3,14 +3,10 @@ import type {
   ArticleRow,
   CreateArticleInput,
   CreateCreationInput,
-  CreateCreationMessageInput,
-  CreationMessageRow,
   CreationRepo,
   CreationRow,
-  CreationThreadRow,
   UpdateArticleContentInput,
   UpdateCreationInput,
-  UpsertCreationThreadInput,
 } from '@/server/repo/creationRepo';
 
 const buildQuery = (params: Record<string, string>) => {
@@ -22,8 +18,6 @@ const buildQuery = (params: Record<string, string>) => {
 const TABLES = {
   articles: 'articles',
   creations: 'creations',
-  threads: 'creation_threads',
-  messages: 'creation_messages',
 };
 
 const createSupabaseCreationRepo = (restConfig: SupabaseRestConfig): CreationRepo => ({
@@ -92,6 +86,7 @@ const createSupabaseCreationRepo = (restConfig: SupabaseRestConfig): CreationRep
         body: {
           ...input,
           source_ids: input.source_ids ?? [],
+          ...(input.thread_id !== undefined ? { thread_id: input.thread_id } : {}),
         },
       },
     );
@@ -99,7 +94,7 @@ const createSupabaseCreationRepo = (restConfig: SupabaseRestConfig): CreationRep
   },
   async getCreationById(projectId: string, creationId: string) {
     const params = buildQuery({
-      select: 'id,project_id,article_id,style,source_ids,created_at,updated_at',
+      select: 'id,project_id,article_id,style,source_ids,thread_id,created_at,updated_at',
       project_id: `eq.${projectId}`,
       id: `eq.${creationId}`,
       limit: '1',
@@ -107,9 +102,18 @@ const createSupabaseCreationRepo = (restConfig: SupabaseRestConfig): CreationRep
     const rows = await supabaseRequest<CreationRow[]>(restConfig, `/${TABLES.creations}${params}`);
     return rows[0];
   },
+  async getCreationByThreadId(threadId: string) {
+    const params = buildQuery({
+      select: 'id,project_id,article_id,style,source_ids,thread_id,created_at,updated_at',
+      thread_id: `eq.${threadId}`,
+      limit: '1',
+    });
+    const rows = await supabaseRequest<CreationRow[]>(restConfig, `/${TABLES.creations}${params}`);
+    return rows[0];
+  },
   async listCreationsByProjectId(projectId: string) {
     const params = buildQuery({
-      select: 'id,project_id,article_id,style,source_ids,created_at,updated_at',
+      select: 'id,project_id,article_id,style,source_ids,thread_id,created_at,updated_at',
       project_id: `eq.${projectId}`,
       order: 'updated_at.desc',
     });
@@ -129,58 +133,9 @@ const createSupabaseCreationRepo = (restConfig: SupabaseRestConfig): CreationRep
         body: {
           ...(input.style ? { style: input.style } : {}),
           ...(input.source_ids ? { source_ids: input.source_ids } : {}),
+          ...(input.thread_id !== undefined ? { thread_id: input.thread_id } : {}),
           updated_at: new Date().toISOString(),
         },
-      },
-    );
-    return rows[0];
-  },
-  async getThreadByCreationId(creationId: string) {
-    const params = buildQuery({
-      select: 'id,creation_id,thread_id,created_at,updated_at',
-      creation_id: `eq.${creationId}`,
-      limit: '1',
-    });
-    const rows = await supabaseRequest<CreationThreadRow[]>(
-      restConfig,
-      `/${TABLES.threads}${params}`,
-    );
-    return rows[0];
-  },
-  async upsertThread(input: UpsertCreationThreadInput) {
-    const rows = await supabaseRequest<CreationThreadRow[]>(
-      restConfig,
-      `/${TABLES.threads}?on_conflict=creation_id`,
-      {
-        method: 'POST',
-        headers: { Prefer: 'return=representation,resolution=merge-duplicates' },
-        body: {
-          ...input,
-          updated_at: new Date().toISOString(),
-        },
-      },
-    );
-    return rows[0];
-  },
-  async listMessagesByCreationId(creationId: string) {
-    const params = buildQuery({
-      select: 'id,creation_id,thread_id,role,content,created_at',
-      creation_id: `eq.${creationId}`,
-      order: 'created_at.asc',
-    });
-    return supabaseRequest<CreationMessageRow[]>(
-      restConfig,
-      `/${TABLES.messages}${params}`,
-    );
-  },
-  async appendMessage(input: CreateCreationMessageInput) {
-    const rows = await supabaseRequest<CreationMessageRow[]>(
-      restConfig,
-      `/${TABLES.messages}?on_conflict=id`,
-      {
-        method: 'POST',
-        headers: { Prefer: 'return=representation,resolution=merge-duplicates' },
-        body: input,
       },
     );
     return rows[0];

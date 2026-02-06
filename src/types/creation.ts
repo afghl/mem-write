@@ -15,23 +15,7 @@ export type Creation = {
   article_id: string;
   style: string;
   source_ids: string[];
+  thread_id?: string | null;
   created_at?: string;
   updated_at?: string;
-};
-
-export type CreationThread = {
-  id: string;
-  creation_id: string;
-  thread_id: string;
-  created_at?: string;
-  updated_at?: string;
-};
-
-export type CreationMessage = {
-  id: string;
-  creation_id: string;
-  thread_id: string;
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  created_at?: string;
 };

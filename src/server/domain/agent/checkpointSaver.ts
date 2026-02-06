@@ -9,6 +9,7 @@ import {
     type PendingWrite,
     copyCheckpoint,
     getCheckpointId,
+    MemorySaver,
     WRITES_IDX_MAP,
 } from '@langchain/langgraph-checkpoint';
 import { TASKS, type SendProtocol } from '@langchain/langgraph-checkpoint';
@@ -312,4 +313,15 @@ export const createSupabaseCheckpointSaver = (
     const repo = getSupabaseHistoryRepo(options);
     if (!repo) return null;
     return new CheckpointSaver(repo);
+};
+
+export const createCheckpointer = (label: string) => {
+    const supabaseSaver = createSupabaseCheckpointSaver();
+    if (!supabaseSaver) {
+        console.warn(
+            `Supabase config missing; falling back to in-memory checkpointer for ${label}.`,
+        );
+        return new MemorySaver();
+    }
+    return supabaseSaver;
 };
